@@ -7,10 +7,11 @@
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <header>
+    <header class="site-header">
+        <span class="site-name">Photo Gallery</span>
         <nav aria-label="Điều hướng chính">
-            <a href="/">Gallery</a>
-            <a href="/upload">Upload</a>
+            <a href="/"<% if (page === 'gallery') { %> aria-current="page"<% } %>>Gallery</a>
+            <a href="/upload"<% if (page === 'upload') { %> aria-current="page"<% } %>>Upload</a>
         </nav>
     </header>
     <main>

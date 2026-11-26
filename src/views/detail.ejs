@@ -1,5 +1,12 @@
 <article class="photo-detail">
     <h1><%= photo.title %></h1>
+    <div class="photo-actions">
+        <a href="/photos/<%= photo.id %>/edit">Chỉnh sửa</a>
+        <form class="photo-delete" method="post" action="/photos/<%= photo.id %>/delete"
+              onsubmit="return window.confirm('Xóa ảnh này?')">
+            <button type="submit">Xóa</button>
+        </form>
+    </div>
     <%- include('photo-image', { photo, sizes: '(max-width: 1600px) 100vw, 1600px', loading: 'eager' }) %>
 
     <dl class="photo-metadata">
@@ -12,8 +19,6 @@
         <dt>Phiên bản</dt>
         <dd><%= photo.currentVersion %></dd>
     </dl>
-
-    <p><a href="/photos/<%= photo.id %>/edit">Chỉnh sửa</a></p>
 
     <table class="variant-table">
         <caption>Các biến thể WebP</caption>
@@ -34,9 +39,4 @@
             <% } %>
         </tbody>
     </table>
-
-    <form class="photo-delete" method="post" action="/photos/<%= photo.id %>/delete"
-          onsubmit="return window.confirm('Xóa ảnh này?')">
-        <button type="submit">Xóa</button>
-    </form>
 </article>

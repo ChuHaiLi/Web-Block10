@@ -1,5 +1,6 @@
 :root
 {
+    --accent: #194765;
     color-scheme: light;
     color: #18181b;
     background: #fafaf9;
@@ -11,37 +12,69 @@ body
     margin: 0;
 }
 
-main, nav
+main, .site-header
 {
     padding-inline: 1rem;
 }
 
-header
-{
-    border-bottom: 1px solid #d4d4d8;
-}
-
-nav
+.site-header
 {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding-block: 0.5rem;
+    border-bottom: 1px solid #d4d4d8;
+    background: #fff;
 }
 
-nav a
+.site-name
+{
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+.site-header nav
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.site-header nav a
 {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
     min-height: 2.75rem;
+    padding-inline: 0.75rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+}
+
+.site-header nav a:hover
+{
+    background: #eef3f6;
+    text-decoration: underline;
+}
+
+.site-header nav a[aria-current="page"]
+{
+    box-shadow: inset 0 -2px currentColor;
+    background: #e4edf2;
+    font-weight: 700;
 }
 
 a
 {
-    color: #194765;
+    color: var(--accent);
 }
 
 :focus-visible
 {
-    outline: 2px solid #194765;
+    outline: 3px solid var(--accent);
     outline-offset: 3px;
 }
 
@@ -152,12 +185,23 @@ a
 .photo-card
 {
     display: block;
+    height: 100%;
+    border-radius: 0.75rem;
+    overflow: hidden;
     color: inherit;
+    background: #fff;
+    box-shadow: 0 0 0 1px #d4d4d8;
     text-decoration: none;
+}
+
+.photo-card:hover
+{
+    box-shadow: 0 0 0 1px var(--accent), 0 4px 12px rgb(25 71 101 / 12%);
 }
 
 .photo-card:hover figcaption, .photo-card:focus-visible figcaption
 {
+    color: var(--accent);
     text-decoration: underline;
 }
 
@@ -168,7 +212,7 @@ a
 
 .photos figcaption
 {
-    margin-top: 0.5rem;
+    padding: 0.75rem 0.875rem;
     font-weight: 600;
     overflow-wrap: anywhere;
 }
@@ -180,12 +224,68 @@ a
     height: auto;
 }
 
+.photos .photo-image
+{
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #eef1f3;
+}
+
 .photo-detail
 {
     max-width: 1600px;
     margin-inline: auto;
     padding-bottom: 2rem;
     overflow-wrap: anywhere;
+}
+
+.photo-detail h1
+{
+    margin-bottom: 0.5rem;
+}
+
+.photo-detail .photo-image
+{
+    max-height: 75vh;
+    border-radius: 0.75rem;
+    object-fit: contain;
+    background: #eef1f3;
+}
+
+.photo-actions
+{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.photo-actions > a, .photo-delete button
+{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding-inline: 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    font: inherit;
+    font-weight: 600;
+}
+
+.photo-actions > a
+{
+    color: #fff;
+    background: var(--accent);
+    text-decoration: none;
+}
+
+.photo-actions > a:hover
+{
+    background: #12364d;
+    text-decoration: underline;
 }
 
 .photo-metadata dt, .variant-table caption
@@ -221,26 +321,18 @@ a
     border-bottom: 1px solid #d4d4d8;
 }
 
-.photo-delete
-{
-    margin-top: 1.5rem;
-}
-
 .photo-delete button
 {
-    min-height: 2.75rem;
-    padding-inline: 1rem;
-    border: 1px solid currentColor;
-    border-radius: 4px;
-    color: #892614;
-    background: transparent;
-    font: inherit;
+    border-color: currentColor;
+    color: #951f2e;
+    background: #fff2f3;
     cursor: pointer;
 }
 
 .photo-delete button:hover
 {
-    background: #f8eae5;
+    background: #f9dce1;
+    text-decoration: underline;
 }
 
 .photo-editor
