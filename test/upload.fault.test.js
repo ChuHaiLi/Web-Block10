@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
+const path = require('node:path');
+const dotenv = require('dotenv');
 const { test } = require('node:test');
 const { runCleanup } = require('../src/cleanup/runCleanup');
 const { prepareTest } = require('./helpers');
@@ -18,6 +20,26 @@ async function readSingleRecord(storage)
     assert.match(entries[0], /^\d+-[a-f0-9]{12}\.json$/);
     return JSON.parse(await fs.readFile(storage.keyToPath('cleanup-queue/' + entries[0]), 'utf8'));
 }
+
+test('upload.fault, prepareTest chỉ kích hoạt fault injection qua option', async t =>
+{
+    const readConfig = dotenv.config;
+    t.mock.method(dotenv, 'config', options =>
+    {
+        const result = readConfig(options);
+        if (path.basename(options.path) === '.env.test')
+        {
+            return { ...result, parsed: { ...result.parsed, FAULT_INJECT: 'db-after-write' } };
+        }
+        return result;
+    });
+
+    const { app, prisma, uploadFiles } = await prepareTest(t);
+    assert.equal(app.get('faultInject'), '');
+    const { body } = await uploadFiles([{ filename: 'small.png' }]).expect(200);
+    assert.equal(body.results[0].ok, true);
+    assert.equal(await prisma.photo.count(), 1);
+});
 
 test('upload.fault, hook sau khi ghi đủ file rollback DB và dọn kho', async t =>
 {

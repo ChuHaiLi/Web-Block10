@@ -202,3 +202,22 @@ test('delete cleanup xử lý mọi ảnh DELETING khi hai lượt chạy đồn
     }
     assert.deepEqual(log.mock.calls.map(call => call.arguments), []);
 });
+
+test('delete Windows chỉ coi EPERM là đã xóa khi kiểm tra thấy file đã mất', { skip: process.platform !== 'win32' }, async t =>
+{
+    const { storage } = await prepareTest(t);
+    const existing = 'originals/aaaaaaaaaaaa.png';
+    const missing = 'originals/bbbbbbbbbbbb.png';
+    await storage.writeFile(existing, 'fixture');
+    const denied = Object.assign(new Error('EPERM giả lập'), { code: 'EPERM' });
+    const unlink = fs.unlink;
+    t.mock.method(fs, 'unlink', async filePath =>
+    {
+        if (filePath === storage.keyToPath(existing) || filePath === storage.keyToPath(missing)) throw denied;
+        return unlink(filePath);
+    });
+
+    assert.equal(await storage.deleteKey(missing), false);
+    await assert.rejects(storage.deleteKey(existing), { code: 'EPERM' });
+    await fs.access(storage.keyToPath(existing));
+});

@@ -19,8 +19,7 @@ function requireTestDatabase(databaseUrl)
 async function prepareTest(t, { faultInject } = {})
 {
     process.env.NODE_ENV = 'test';
-    const config = loadConfig();
-    const { databaseUrl } = config;
+    const { databaseUrl } = loadConfig();
     requireTestDatabase(databaseUrl);
     const prisma = createDb(databaseUrl);
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'block10-'));
@@ -51,7 +50,7 @@ async function prepareTest(t, { faultInject } = {})
 
     await storage.initialize();
     await resetDb();
-    const app = createApp({ prisma, storage, faultInject: faultInject ?? config.faultInject });
+    const app = createApp({ prisma, storage, faultInject });
     const request = supertest(app);
 
     function uploadFiles(files, { alt = index => `Ảnh kiểm thử ${index}` } = {})

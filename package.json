@@ -9,7 +9,10 @@
     "start": "node src/server.js",
     "test": "node --test --test-concurrency=1 test/",
     "fixtures": "node scripts/make-fixtures.js",
-    "cleanup": "node scripts/cleanup.js"
+    "cleanup": "node scripts/cleanup.js",
+    "evidence:db": "node scripts/evidence-db.js",
+    "evidence:exif": "node scripts/evidence-exif.js",
+    "evidence:requests": "node scripts/evidence-requests.js"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
@@ -20,6 +23,7 @@
     "sharp": "^0.33.5"
   },
   "devDependencies": {
+    "exif-reader": "^2.0.3",
     "prisma": "5.22.0",
     "supertest": "^7.0.0"
   }

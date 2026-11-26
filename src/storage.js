@@ -8,9 +8,13 @@ const temporaryKeyPattern = /^tmp\/[A-Za-z0-9_-]{12}-\d+$/;
 const queueKeyPattern = /^cleanup-queue\/\d+-[a-f0-9]{12}\.(?:tmp|json|bad)$/;
 const directories = ['photos', 'originals', 'tmp', 'cleanup-queue'];
 
+function isWindowsSharingError(error)
+{
+    return process.platform === 'win32' && ['EPERM', 'EBUSY'].includes(error.code);
+}
+
 async function retryWindowsFs(operation)
 {
-    const retries = process.platform === 'win32' ? 2 : 0;
     for (let attempt = 0; ; attempt++)
     {
         try
@@ -20,9 +24,25 @@ async function retryWindowsFs(operation)
         catch (error)
         {
             // Windows can report EPERM while another process is removing the same path.
-            if (attempt >= retries || !['EPERM', 'EBUSY'].includes(error.code)) throw error;
+            if (attempt >= 2 || !isWindowsSharingError(error)) throw error;
             await delay(10);
         }
+    }
+}
+
+async function isMissingAfterDelete(filePath, error)
+{
+    if (error.code === 'ENOENT') return true;
+    if (!isWindowsSharingError(error)) return false;
+
+    try
+    {
+        await fs.lstat(filePath);
+        return false;
+    }
+    catch (lookupError)
+    {
+        return lookupError.code === 'ENOENT';
     }
 }
 
@@ -35,7 +55,7 @@ async function unlinkIfPresent(filePath)
     }
     catch (error)
     {
-        if (error.code !== 'ENOENT') throw error;
+        if (!await isMissingAfterDelete(filePath, error)) throw error;
         return false;
     }
 }
@@ -48,7 +68,7 @@ async function removeEmptyDirectory(directory)
     }
     catch (error)
     {
-        if (error.code !== 'ENOENT' && error.code !== 'ENOTEMPTY') throw error;
+        if (error.code !== 'ENOTEMPTY' && !await isMissingAfterDelete(directory, error)) throw error;
     }
 }
 

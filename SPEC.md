@@ -394,11 +394,12 @@ Mọi bước phải idempotent, chạy lại nhiều lần không sinh lỗi.
 **Không dùng khóa giữa các tiến trình.** Trong cùng một tiến trình server, chỉ giữ cờ `running` để timer định kỳ không gọi chồng lên lượt đang chạy. CLI và server có thể cùng chạy `runCleanup`, và điều đó vô hại, vì mọi thao tác bên dưới đều idempotent.
 
 1. **Hàng đợi dọn (`cleanup-queue/`):** mỗi key cần dọn lại là **một file JSON riêng**, không dùng journal chung. Lý do: với journal chung, `appendFile` của một request có thể đã mở file ngay trước lúc cleanup đổi tên nó, rồi ghi vào file mà cleanup sắp xóa, làm mất key.
-   - **Ghi (`queue.enqueue(key, reason)`)**, gọi từ upload/edit/purge khi `deleteKey` lỗi:
+   - **Ghi (`queue.enqueue(key, reason)`)** từ upload/edit khi `deleteKey` lỗi.
      1. Tên bản ghi: `<Date.now()>-<randomBytes(6).hex>`.
      2. `writeFile('cleanup-queue/<tên>.tmp', JSON.stringify({ key, reason, at }))`.
      3. `rename('<tên>.tmp', '<tên>.json')`. Đổi tên là nguyên tử, nên cleanup chỉ bao giờ thấy file `.json` đã ghi đủ nội dung.
      4. Nếu chính bước ghi hàng đợi cũng lỗi (vd đĩa đầy), ghi `console.error` với key, để còn dấu vết trong log. Bước 5 bên dưới vẫn bắt được file mồ côi.
+   - Khi `purgePhoto` xóa file lỗi, luồng purge bỏ qua hàng đợi. Ảnh giữ `DELETING` để bước 3 thử lại.
    - **Xử lý** (trong `runCleanup`):
      1. `readdir('cleanup-queue')`, chỉ lấy các file `*.json`.
      2. Với mỗi bản ghi: đọc nội dung, gọi `deleteKey(key)`. **Đọc gặp `ENOENT`** (lượt cleanup khác đã xử lý xong hoặc đã đổi tên bản ghi giữa lúc `readdir` và lúc đọc) → bỏ qua bản ghi đó, không coi là lỗi.
