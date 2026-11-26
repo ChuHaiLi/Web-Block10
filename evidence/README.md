@@ -17,4 +17,4 @@ Dùng cùng một lần chạy và cùng một `photoId` cho các mục 01–04.
 - [ ] **11** `11-restart.png` và `11-restart.txt`. Dừng hẳn server, chạy lại với cùng DB và kho. Gallery và cùng URL GET media vẫn trả `200`.
 - [ ] **12** `12-delete.txt`. Ghi trạng thái DB trước và sau khi xóa, GET media mới trả `404` và chứng minh file đã được dọn khỏi kho.
 - [ ] **13** `13-env-example.txt`. Bản sao nội dung `.env.example` đã kiểm tra thông tin xác thực.
-- [ ] **14** `14-bonus-*` nếu làm bonus. Ghi bằng chứng trước và sau chỉnh sửa, URL đổi từ `v1` sang `v2` và response `409` khi lưu đồng thời.
+- [ ] **14** `14-bonus-*` nếu làm bonus. Ghi bằng chứng trước và sau chỉnh sửa, URL đổi từ `v1` sang `v2` và response `409` khi lưu đồng thời. Với cleanup, ghi `purgedAt` của version quá hạn, số file `supersededVersionFilesRemoved` từ `npm run cleanup` và kết quả GET mới của version đã dọn (`404`) và version hiện tại (`200`).

@@ -17,7 +17,7 @@ async function start()
         running = true;
         try
         {
-            await runCleanup({ prisma, storage });
+            await runCleanup({ prisma, storage, versionRetentionHours: config.versionRetentionHours });
         }
         catch (error)
         {

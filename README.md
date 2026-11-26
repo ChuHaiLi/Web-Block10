@@ -56,7 +56,7 @@ DB giữ storage key tương đối. Khi xóa ảnh, trạng thái chuyển sang
 
 Cleanup chạy khi server khởi động và theo lịch, mặc định mỗi 15 phút. Có thể chạy ngay bằng `npm run cleanup`. Cleanup thử lại các bản ghi trong hàng đợi và các ảnh đang `DELETING`. File tạm, bản ghi `.tmp` đang ghi dở và file mồ côi được xét dọn khi cũ hơn một giờ.
 
-Chính sách dành cho luồng chỉnh sửa bonus là giữ version cũ 24 giờ sau khi bị thay thế. Bước dọn version cũ của bonus sẽ xóa file variant và đặt `purgedAt` sau thời hạn `VERSION_RETENTION_HOURS`.
+Version cũ tiếp tục phục vụ trong `VERSION_RETENTION_HOURS`, mặc định 24 giờ tính từ `supersededAt`. Khi hết hạn, cleanup xóa các file variant và đặt `purgedAt`. Nếu xóa gặp lỗi, cleanup thử lại ở lượt sau. Version hiện tại và PNG gốc được giữ lại.
 
 Media dùng `Cache-Control: public, max-age=31536000, immutable`. Sau khi xóa, request mới đến server trả `404`. Bản đã nằm trong cache trình duyệt có thể vẫn hiển thị cho tới khi cache hết hạn hoặc bị xóa. Khi nghiệm thu, dùng GET mới bằng curl hoặc tắt cache trong DevTools.
 

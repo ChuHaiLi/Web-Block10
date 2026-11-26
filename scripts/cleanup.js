@@ -13,7 +13,7 @@ async function cleanup()
     {
         await storage.initialize();
         await prisma.$connect();
-        await runCleanup({ prisma, storage });
+        await runCleanup({ prisma, storage, versionRetentionHours: config.versionRetentionHours });
     }
     finally
     {

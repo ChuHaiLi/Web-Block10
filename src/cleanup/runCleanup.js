@@ -131,6 +131,48 @@ async function cleanDeletingPhotos(prisma, storage)
     return removed;
 }
 
+async function cleanSupersededVersions(prisma, storage, cutoff)
+{
+    const versions = await prisma.photoVersion.findMany({
+        where: { supersededAt: { lt: cutoff }, purgedAt: null },
+        select: {
+            photoId: true,
+            version: true,
+            photo: { select: { currentVersion: true } },
+            variants: { select: { storageKey: true } }
+        }
+    });
+    let removed = 0;
+    for (const { photoId, version, photo, variants } of versions)
+    {
+        // Edits and restores select new versions, so a superseded version cannot become current again.
+        if (version === photo.currentVersion) continue;
+
+        let failed = false;
+        for (const { storageKey } of variants)
+        {
+            try
+            {
+                if (await storage.deleteKey(storageKey)) removed++;
+            }
+            catch (error)
+            {
+                if (error.code === 'ENOENT') continue;
+                failed = true;
+                console.error('Không xóa được variant hết hạn ' + storageKey, error);
+            }
+        }
+        if (!failed)
+        {
+            await prisma.photoVersion.updateMany({
+                where: { photoId, version, purgedAt: null },
+                data: { purgedAt: new Date() }
+            });
+        }
+    }
+    return removed;
+}
+
 async function cleanOrphanVersions(prisma, storage, cutoff)
 {
     const directory = path.join(storage.root, 'photos');
@@ -180,14 +222,17 @@ async function cleanOrphanOriginals(prisma, storage, cutoff)
     return removed;
 }
 
-async function runCleanup({ prisma, storage })
+async function runCleanup({ prisma, storage, versionRetentionHours = 24 })
 {
-    const cutoff = Date.now() - ONE_HOUR_MS;
+    const now = Date.now();
+    const cutoff = now - ONE_HOUR_MS;
+    const retentionCutoff = new Date(now - versionRetentionHours * ONE_HOUR_MS);
     const queue = await cleanQueue(storage, cutoff);
     const summary = {
         ...queue,
         temporaryFilesRemoved: await removeOldFiles(path.join(storage.root, 'tmp'), cutoff, () => true),
         deletedPhotoFilesRemoved: await cleanDeletingPhotos(prisma, storage),
+        supersededVersionFilesRemoved: await cleanSupersededVersions(prisma, storage, retentionCutoff),
         orphanVersionFilesRemoved: await cleanOrphanVersions(prisma, storage, cutoff),
         orphanOriginalFilesRemoved: await cleanOrphanOriginals(prisma, storage, cutoff)
     };
