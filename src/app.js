@@ -14,7 +14,7 @@ function createApp({ prisma, storage, faultInject = '' })
 
     app.use('/api', createApiRouter(prisma, storage));
     app.use('/media', createMediaRouter(prisma, storage));
-    app.use(createPagesRouter(prisma));
+    app.use(createPagesRouter(prisma, storage));
 
     app.use((req, res) =>
     {

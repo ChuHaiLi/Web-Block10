@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { originalKeyPattern, retryWindowsFs, unlinkIfPresent, removeEmptyDirectory } = require('../storage');
+const { purgePhoto } = require('./purgePhoto');
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const photoIdPattern = /^[A-Za-z0-9_-]{12}$/;
@@ -119,6 +120,17 @@ async function cleanQueue(storage, cutoff)
     return { queueFilesRemoved, queueRecordsRemoved, queueTemporaryFilesRemoved };
 }
 
+async function cleanDeletingPhotos(prisma, storage)
+{
+    const photos = await prisma.photo.findMany({ where: { status: 'DELETING' }, select: { id: true } });
+    let removed = 0;
+    for (const { id } of photos)
+    {
+        removed += await attempt(() => purgePhoto({ prisma, storage, id }), id) ?? 0;
+    }
+    return removed;
+}
+
 async function cleanOrphanVersions(prisma, storage, cutoff)
 {
     const directory = path.join(storage.root, 'photos');
@@ -175,6 +187,7 @@ async function runCleanup({ prisma, storage })
     const summary = {
         ...queue,
         temporaryFilesRemoved: await removeOldFiles(path.join(storage.root, 'tmp'), cutoff, () => true),
+        deletedPhotoFilesRemoved: await cleanDeletingPhotos(prisma, storage),
         orphanVersionFilesRemoved: await cleanOrphanVersions(prisma, storage, cutoff),
         orphanOriginalFilesRemoved: await cleanOrphanOriginals(prisma, storage, cutoff)
     };

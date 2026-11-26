@@ -1,4 +1,5 @@
 const express = require('express');
+const { purgePhoto } = require('../cleanup/purgePhoto');
 
 const displayedVariants = {
     where: { photoVersion: { purgedAt: null } },
@@ -17,7 +18,7 @@ function presentPhoto(photo)
     return { ...photo, variants, cover, srcset };
 }
 
-function createPagesRouter(prisma)
+function createPagesRouter(prisma, storage)
 {
     const router = express.Router();
     router.get('/', async (req, res, next) =>
@@ -50,6 +51,26 @@ function createPagesRouter(prisma)
             if (!photo) return next();
 
             res.render('layout', { title: photo.title, page: 'detail', photo });
+        }
+        catch (error)
+        {
+            next(error);
+        }
+    });
+
+    router.post('/photos/:id/delete', async (req, res, next) =>
+    {
+        const { id } = req.params;
+        try
+        {
+            const updated = await prisma.photo.updateMany({
+                where: { id, status: 'PUBLISHED' },
+                data: { status: 'DELETING', deletedAt: new Date() }
+            });
+            if (updated.count === 0) return next();
+
+            await purgePhoto({ prisma, storage, id });
+            res.redirect(303, '/');
         }
         catch (error)
         {
