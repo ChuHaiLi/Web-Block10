@@ -11,7 +11,7 @@ const messages = {
     NOT_IMAGE: 'File không phải JPEG hoặc PNG',
     CORRUPT: 'Không đọc được ảnh',
     TOO_MANY_PIXELS: 'Ảnh vượt quá 40 triệu pixel',
-    UNSUPPORTED_DIMENSIONS: 'Kích thước variant vượt giới hạn WebP',
+    UNSUPPORTED_DIMENSIONS: 'Chiều cao biến thể WebP sau khi đổi kích thước vượt giới hạn 16.383 px',
     STORAGE_ERROR: 'Không lưu được ảnh'
 };
 

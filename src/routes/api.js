@@ -2,6 +2,8 @@ const path = require('node:path');
 const express = require('express');
 const { uploadError } = require('../upload/errors');
 const { createCleanupQueue } = require('../cleanup/queue');
+const { editError } = require('../edit/errors');
+const { saveVersion } = require('../edit/saveVersion');
 const { parseMultipart } = require('../upload/parseMultipart');
 const { savePhoto } = require('../upload/savePhoto');
 
@@ -79,6 +81,20 @@ function sendRequestError(req, res, status, error)
     req.resume();
 }
 
+const editStatuses = {
+    INVALID_EDITS: 400,
+    UNSUPPORTED_DIMENSIONS: 400,
+    NOT_FOUND: 404,
+    VERSION_CONFLICT: 409,
+    STORAGE_ERROR: 500
+};
+
+function editJsonError(error, req, res, next)
+{
+    const invalid = editError('INVALID_EDITS');
+    if (!res.destroyed) res.status(400).json({ error: { code: invalid.code, message: invalid.message } });
+}
+
 function createApiRouter(prisma, storage)
 {
     const router = express.Router();
@@ -126,6 +142,26 @@ function createApiRouter(prisma, storage)
         }
 
         res.json({ results });
+    });
+
+    router.post('/photos/:id/edits', express.json(), editJsonError, async (req, res) =>
+    {
+        try
+        {
+            const result = await saveVersion({
+                prisma, storage, queue, id: req.params.id, input: req.body,
+                faultInject: req.app.get('faultInject')
+            });
+            res.json(result);
+        }
+        catch (cause)
+        {
+            const error = Object.hasOwn(editStatuses, cause.code) ? cause : editError('STORAGE_ERROR', { cause });
+            if (error.code === 'STORAGE_ERROR') console.error(error);
+            const body = { error: { code: error.code, message: error.message } };
+            if (error.code === 'VERSION_CONFLICT') body.currentVersion = error.currentVersion;
+            res.status(editStatuses[error.code]).json(body);
+        }
     });
 
     return router;
