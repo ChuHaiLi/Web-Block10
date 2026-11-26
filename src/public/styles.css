@@ -127,10 +127,38 @@ a
 .photos
 {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;
-    max-width: 60rem;
     padding: 0;
     list-style: none;
+}
+
+@media (min-width: 600px)
+{
+    .photos
+    {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1000px)
+{
+    .photos
+    {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.photo-card
+{
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.photo-card:hover figcaption, .photo-card:focus-visible figcaption
+{
+    text-decoration: underline;
 }
 
 .photos figure
@@ -138,9 +166,79 @@ a
     margin: 0;
 }
 
-.photos img
+.photos figcaption
+{
+    margin-top: 0.5rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.photo-image
 {
     display: block;
-    max-width: 100%;
+    width: 100%;
     height: auto;
+}
+
+.photo-detail
+{
+    max-width: 1600px;
+    margin-inline: auto;
+    padding-bottom: 2rem;
+    overflow-wrap: anywhere;
+}
+
+.photo-metadata dt, .variant-table caption
+{
+    font-weight: 600;
+}
+
+.photo-metadata dd
+{
+    margin: 0 0 0.75rem;
+}
+
+.variant-table
+{
+    width: 100%;
+    max-width: 42rem;
+    border-collapse: collapse;
+}
+
+.variant-table caption, .variant-table th, .variant-table td
+{
+    text-align: left;
+}
+
+.variant-table caption
+{
+    margin-bottom: 0.5rem;
+}
+
+.variant-table th, .variant-table td
+{
+    padding: 0.5rem;
+    border-bottom: 1px solid #d4d4d8;
+}
+
+.photo-delete
+{
+    margin-top: 1.5rem;
+}
+
+.photo-delete button
+{
+    min-height: 2.75rem;
+    padding-inline: 1rem;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    color: #892614;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+
+.photo-delete button:hover
+{
+    background: #f8eae5;
 }

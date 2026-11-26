@@ -79,7 +79,7 @@ function applyResults(uploadResults)
         const item = document.createElement('li');
         item.textContent = entry.file.name + ' — ';
         const link = document.createElement('a');
-        link.href = '/#photo-' + result.photo.id;
+        link.href = result.photo.url;
         link.textContent = 'Xem ảnh trong gallery';
         item.append(link);
         results.append(item);

@@ -1,0 +1,40 @@
+<article class="photo-detail">
+    <h1><%= photo.title %></h1>
+    <%- include('photo-image', { photo, sizes: '(max-width: 1600px) 100vw, 1600px', loading: 'eager' }) %>
+
+    <dl class="photo-metadata">
+        <dt>Mô tả ảnh</dt>
+        <dd><%= photo.alt %></dd>
+        <dt>Ngày tạo</dt>
+        <dd>
+            <time datetime="<%= photo.createdAt.toISOString() %>"><%= photo.createdAt.toLocaleDateString('vi-VN', { timeZone: 'UTC' }) %></time>
+        </dd>
+        <dt>Phiên bản</dt>
+        <dd><%= photo.currentVersion %></dd>
+    </dl>
+
+    <table class="variant-table">
+        <caption>Các biến thể WebP</caption>
+        <thead>
+            <tr>
+                <th scope="col">Kích thước</th>
+                <th scope="col">Dung lượng (byte)</th>
+                <th scope="col">Tệp</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% for (const variant of photo.variants) { %>
+                <tr>
+                    <td><%= variant.width %> × <%= variant.height %></td>
+                    <td><%= variant.bytes %></td>
+                    <td><a href="<%= variant.url %>"><%= variant.width %>.webp</a></td>
+                </tr>
+            <% } %>
+        </tbody>
+    </table>
+
+    <form class="photo-delete" method="post" action="/photos/<%= photo.id %>/delete"
+          onsubmit="return window.confirm('Xóa ảnh này?')">
+        <button type="submit">Xóa</button>
+    </form>
+</article>

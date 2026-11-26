@@ -1,5 +1,22 @@
 const express = require('express');
 
+const displayedVariants = {
+    where: { photoVersion: { purgedAt: null } },
+    orderBy: { width: 'asc' }
+};
+
+function presentPhoto(photo)
+{
+    const variants = photo.variants
+        .filter(variant => variant.version === photo.currentVersion)
+        .map(variant => ({ ...variant, url: '/media/' + variant.storageKey }));
+    const cover = variants.findLast(variant => variant.width <= 960) ?? variants[0];
+    if (!cover) return null;
+
+    const srcset = variants.map(variant => variant.url + ' ' + variant.width + 'w').join(', ');
+    return { ...photo, variants, cover, srcset };
+}
+
 function createPagesRouter(prisma)
 {
     const router = express.Router();
@@ -10,17 +27,29 @@ function createPagesRouter(prisma)
             const records = await prisma.photo.findMany({
                 where: { status: 'PUBLISHED' },
                 orderBy: { createdAt: 'desc' },
-                include: { variants: { where: { photoVersion: { purgedAt: null } }, orderBy: { width: 'asc' } } }
+                include: { variants: displayedVariants }
             });
-
-            const photos = records.flatMap(({ id, title, alt, currentVersion, variants }) =>
-            {
-                const current = variants.filter(variant => variant.version === currentVersion);
-                const cover = current.findLast(variant => variant.width <= 960) ?? current[0];
-                return cover ? [{ id, title, alt, cover }] : [];
-            });
-
+            const photos = records.map(presentPhoto).filter(Boolean);
             res.render('layout', { title: 'Gallery', page: 'gallery', photos });
+        }
+        catch (error)
+        {
+            next(error);
+        }
+    });
+
+    router.get('/photos/:id', async (req, res, next) =>
+    {
+        try
+        {
+            const record = await prisma.photo.findUnique({
+                where: { id: req.params.id, status: 'PUBLISHED' },
+                include: { variants: displayedVariants }
+            });
+            const photo = record && presentPhoto(record);
+            if (!photo) return next();
+
+            res.render('layout', { title: photo.title, page: 'detail', photo });
         }
         catch (error)
         {

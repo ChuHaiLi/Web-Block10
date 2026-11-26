@@ -3,13 +3,18 @@
     <p>Chưa có ảnh. <a href="/upload">Tải ảnh lên</a></p>
 <% } else { %>
     <ul class="photos">
-        <% for (const { id, title, alt, cover } of photos) { %>
-            <li id="photo-<%= id %>">
-                <figure>
-                    <img src="/media/<%= cover.storageKey %>" width="<%= cover.width %>"
-                         height="<%= cover.height %>" loading="lazy" decoding="async" alt="<%= alt %>">
-                    <figcaption><%= title %></figcaption>
-                </figure>
+        <% for (const photo of photos) { %>
+            <li id="photo-<%= photo.id %>">
+                <a class="photo-card" href="/photos/<%= photo.id %>">
+                    <figure>
+                        <%- include('photo-image', {
+                            photo,
+                            sizes: '(max-width: 599px) 100vw, (max-width: 999px) 50vw, 33vw',
+                            loading: 'lazy'
+                        }) %>
+                        <figcaption><%= photo.title %></figcaption>
+                    </figure>
+                </a>
             </li>
         <% } %>
     </ul>
