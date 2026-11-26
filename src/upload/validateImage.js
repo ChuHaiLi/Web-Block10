@@ -34,7 +34,9 @@ async function validateImage(file, filePath)
     {
         throw uploadError('CORRUPT', error);
     }
-    if (metadata.width * metadata.height > MAX_PIXELS) throw uploadError('TOO_MANY_PIXELS');
+    const { width, height, orientation } = metadata;
+    if (width * height > MAX_PIXELS) throw uploadError('TOO_MANY_PIXELS');
+    return orientation >= 5 && orientation <= 8 ? { width: height, height: width } : { width, height };
 }
 
 module.exports = { MAX_PIXELS, validateImage };

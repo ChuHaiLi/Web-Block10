@@ -11,7 +11,7 @@ sharp.cache({ files: 0 });
 async function processImage(file, id, storage, writtenKeys)
 {
     const source = storage.keyToPath(file.tmpKey);
-    await validateImage(file, source);
+    const { width, height } = await validateImage(file, source);
 
     const originalKey = `originals/${id}.png`;
     const originalPath = storage.keyToPath(originalKey);
@@ -32,15 +32,14 @@ async function processImage(file, id, storage, writtenKeys)
         throw uploadError('CORRUPT', error);
     }
 
-    const widths = variantPlan(original.width, original.height);
     const variants = [];
-    for (const width of widths)
+    for (const variantWidth of variantPlan(width, height))
     {
-        const storageKey = `photos/${id}/v1/${width}.webp`;
+        const storageKey = `photos/${id}/v1/${variantWidth}.webp`;
         const variantPath = storage.keyToPath(storageKey);
         await fs.mkdir(path.dirname(variantPath), { recursive: true });
         writtenKeys.push(storageKey);
-        const info = await sharp(originalPath).resize({ width }).webp({ quality: 80 }).toFile(variantPath);
+        const info = await sharp(originalPath).resize({ width: variantWidth }).webp({ quality: 80 }).toFile(variantPath);
         variants.push({ storageKey, width: info.width, height: info.height, mime: 'image/webp', bytes: info.size });
     }
 

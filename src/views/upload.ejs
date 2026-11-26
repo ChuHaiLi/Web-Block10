@@ -1,16 +1,33 @@
 <h1>Tải ảnh lên</h1>
 <form id="upload-form" action="/api/uploads" method="post" enctype="multipart/form-data" class="upload-form">
-    <label for="photos">Ảnh JPEG hoặc PNG</label>
-    <input id="photos" name="photos" type="file" accept="image/jpeg,image/png" required>
-
-    <label for="title">Tiêu đề</label>
-    <input id="title" name="title_0" type="text" maxlength="120">
-
-    <label for="alt">Mô tả ảnh</label>
-    <textarea id="alt" name="alt_0" maxlength="250" rows="3" aria-describedby="alt-hint" required></textarea>
-    <small id="alt-hint">Mô tả nội dung ảnh, ví dụ Chó nằm dưới bàn.</small>
-
+    <label for="photos">Chọn ảnh JPEG hoặc PNG</label>
+    <input id="photos" name="photos" type="file" accept="image/jpeg,image/png" aria-describedby="upload-hint" multiple required>
+    <small id="upload-hint">Tối đa 5 ảnh mỗi lần, 10 MiB mỗi ảnh.</small>
+    <p id="upload-warning" role="status"></p>
+    <div id="upload-files" class="upload-files"></div>
     <button type="submit">Tải lên</button>
 </form>
 <p id="upload-status" role="status"></p>
+<p id="upload-error" role="alert"></p>
+<ul id="upload-results" aria-label="Kết quả tải ảnh"></ul>
+
+<template id="upload-file">
+    <fieldset class="upload-file">
+        <legend></legend>
+        <div class="upload-file-body">
+            <div>
+                <img class="upload-thumbnail" alt="" width="80" height="80">
+                <small class="upload-size"></small>
+            </div>
+            <div class="upload-file-fields">
+                <label data-label="title">Tiêu đề</label>
+                <input class="upload-title" type="text" maxlength="120">
+                <label data-label="alt">Mô tả ảnh</label>
+                <textarea class="upload-alt" maxlength="250" rows="3" required></textarea>
+                <small class="upload-alt-hint">Mô tả nội dung ảnh, ví dụ Chó nằm dưới bàn.</small>
+                <small class="upload-file-error"></small>
+            </div>
+        </div>
+    </fieldset>
+</template>
 <script src="/upload.js" defer></script>

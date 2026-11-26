@@ -30,7 +30,8 @@ function loadConfig({ nodeEnv = process.env.NODE_ENV, uploadRoot } = {})
         port: Number(env.PORT || 3000),
         uploadRoot: root,
         versionRetentionHours: Number(env.VERSION_RETENTION_HOURS || 24),
-        cleanupIntervalMinutes: Number(env.CLEANUP_INTERVAL_MINUTES || 15)
+        cleanupIntervalMinutes: Number(env.CLEANUP_INTERVAL_MINUTES || 15),
+        faultInject: isTest ? (env.FAULT_INJECT ?? '') : ''
     };
 }
 

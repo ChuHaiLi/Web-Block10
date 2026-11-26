@@ -4,6 +4,35 @@ const { test } = require('node:test');
 const sharp = require('sharp');
 const { prepareTest } = require('./helpers');
 
+function readGps(exif)
+{
+    const tiff = exif.subarray(exif.toString('ascii', 0, 4) === 'Exif' ? 6 : 0);
+    const littleEndian = tiff.toString('ascii', 0, 2) === 'II';
+    const uint16 = offset => littleEndian ? tiff.readUInt16LE(offset) : tiff.readUInt16BE(offset);
+    const uint32 = offset => littleEndian ? tiff.readUInt32LE(offset) : tiff.readUInt32BE(offset);
+
+    function tagValueOffset(ifd, tag)
+    {
+        for (let index = 0; index < uint16(ifd); index++)
+        {
+            const entry = ifd + 2 + index * 12;
+            if (uint16(entry) === tag) return entry + 8;
+        }
+        assert.fail('Thiếu tag EXIF ' + tag.toString(16));
+    }
+
+    const gpsIfd = uint32(tagValueOffset(uint32(4), 0x8825));
+    function coordinate(refTag, valueTag)
+    {
+        const reference = String.fromCharCode(tiff[tagValueOffset(gpsIfd, refTag)]);
+        const start = uint32(tagValueOffset(gpsIfd, valueTag));
+        const values = [0, 8, 16].map(offset => uint32(start + offset) / uint32(start + offset + 4));
+        return { reference, values };
+    }
+
+    return { latitude: coordinate(1, 2), longitude: coordinate(3, 4) };
+}
+
 test('exif xoay pixel theo orientation và loại EXIF khỏi PNG gốc và WebP', async t =>
 {
     const { prisma, storage, uploadFiles } = await prepareTest(t);
@@ -11,6 +40,10 @@ test('exif xoay pixel theo orientation và loại EXIF khỏi PNG gốc và WebP
     const source = await sharp(path.join(__dirname, 'fixtures', filename)).metadata();
     assert.deepEqual([source.width, source.height, source.orientation], [1200, 800, 6]);
     assert.ok(source.exif);
+    assert.deepEqual(readGps(source.exif), {
+        latitude: { reference: 'N', values: [10, 46, 0] },
+        longitude: { reference: 'E', values: [106, 42, 0] }
+    });
 
     const response = await uploadFiles([{ filename }]).expect(200);
     const [result] = response.body.results;

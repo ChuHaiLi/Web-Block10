@@ -2,7 +2,7 @@ const messages = {
     NOT_MULTIPART: 'Yêu cầu phải dùng multipart/form-data',
     MALFORMED: 'Dữ liệu multipart không hợp lệ',
     NO_FILES: 'Hãy chọn một ảnh để tải lên',
-    TOO_MANY_FILES: 'Mỗi lần tải lên chỉ nhận một ảnh',
+    TOO_MANY_FILES: 'Mỗi lần tải lên nhận tối đa 5 ảnh',
     REQUEST_TOO_LARGE: 'Yêu cầu vượt quá 55 MiB',
     ABORTED: 'Kết nối đã bị ngắt',
     ALT_REQUIRED: 'Hãy nhập mô tả nội dung ảnh',

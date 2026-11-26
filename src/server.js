@@ -13,7 +13,7 @@ async function start()
     {
         await storage.initialize();
         await prisma.$connect();
-        const app = createApp({ prisma, storage });
+        const app = createApp({ prisma, storage, faultInject: config.faultInject });
         const server = app.listen(config.port, () =>
         {
             console.log(`Photo Gallery: http://localhost:${server.address().port}`);

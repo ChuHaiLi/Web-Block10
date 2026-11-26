@@ -13,8 +13,8 @@ for (const image of [
     {
         const { prisma, storage, request, uploadFiles } = await prepareTest(t);
         const uploadPage = await request.get('/upload').expect(200);
-        assert.match(uploadPage.text, /name="photos"/);
-        assert.match(uploadPage.text, /name="alt_0"[^>]*required/);
+        assert.match(uploadPage.text, /name="photos"[^>]*multiple/);
+        assert.match(uploadPage.text, /<textarea[^>]*required/);
 
         const title = 'Ảnh ' + image.filename;
         const alt = 'Ảnh mẫu cho gallery';
@@ -77,3 +77,30 @@ for (const image of [
         await request.get('/media/' + cover.storageKey).expect(200);
     });
 }
+
+test('upload.happy gửi JPEG và PNG trong cùng request', async t =>
+{
+    const { prisma, storage, uploadFiles } = await prepareTest(t);
+    const response = await uploadFiles([
+        { filename: 'photo.jpg', title: '  Ảnh thứ nhất  ', altText: 'JPEG trong album' },
+        { filename: 'photo.png', title: '  Ảnh thứ hai  ', altText: 'PNG trong album' }
+    ]).expect(200);
+    const results = response.body.results;
+    assert.deepEqual(results.map(({ index, ok, photo }) => [index, ok, photo?.variants.map(variant => variant.width)]),
+        [[0, true, [320, 960, 1600]], [1, true, [320, 800]]]);
+
+    const photos = await prisma.photo.findMany({ include: { variants: true } });
+    const metadata = new Map(photos.map(({ id, title, alt }) => [id, [id, title, alt]]));
+    assert.deepEqual(results.map(result => metadata.get(result.photo.id)), [
+        [results[0].photo.id, 'Ảnh thứ nhất', 'JPEG trong album'],
+        [results[1].photo.id, 'Ảnh thứ hai', 'PNG trong album']
+    ]);
+    assert.equal(await prisma.photoVersion.count(), 2);
+    assert.equal(await prisma.photoVariant.count(), 5);
+    for (const photo of photos)
+    {
+        await fs.access(storage.keyToPath(photo.originalKey));
+        for (const variant of photo.variants) await fs.access(storage.keyToPath(variant.storageKey));
+    }
+    assert.deepEqual(await storage.listDir('tmp'), []);
+});

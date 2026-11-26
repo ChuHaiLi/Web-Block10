@@ -1,11 +1,26 @@
-const { createWriteStream } = require('node:fs');
+const fs = require('node:fs');
 const { finished } = require('node:stream/promises');
 const busboy = require('busboy');
 const { newPhotoId } = require('../ids');
 const { uploadError } = require('./errors');
 
+const MAX_FILES = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 55 * 1024 * 1024;
+
+async function deleteTemporaryFile(storage, key)
+{
+    try
+    {
+        await storage.deleteKey(key);
+        return true;
+    }
+    catch (error)
+    {
+        console.error('Không xóa được ' + key, error);
+        return false;
+    }
+}
 
 async function parseMultipart(req, storage)
 {
@@ -24,7 +39,7 @@ async function parseMultipart(req, storage)
         parser = busboy({
             headers: req.headers,
             defParamCharset: 'utf8',
-            limits: { files: 1, fileSize: MAX_FILE_BYTES + 1, fields: 20, fieldSize: 4096, parts: 30 }
+            limits: { files: MAX_FILES, fileSize: MAX_FILE_BYTES + 1, fields: 20, fieldSize: 4096, parts: 30 }
         });
     }
     catch (error)
@@ -32,97 +47,126 @@ async function parseMultipart(req, storage)
         throw uploadError('MALFORMED', error);
     }
 
+    const uploadId = newPhotoId();
     const fields = new Map();
-    let file;
-    let writer;
-    let writing;
+    const files = [];
+    const writers = [];
     let failure;
     let requestBytes = 0;
 
-    function abort(error)
+    function abort(code, cause)
     {
         if (failure) return;
-        failure = error;
+        failure = uploadError(code, cause);
+        failure.drainRequest = true;
         req.unpipe(parser);
-        parser.destroy();
-        writer?.destroy();
+        req.pause();
+
+        // Busboy may still be handling the chunk that raised the event.
+        queueMicrotask(() =>
+        {
+            parser.destroy();
+            for (const { writer } of writers) writer.destroy();
+        });
     }
 
     function onData(chunk)
     {
         requestBytes += chunk.length;
-        if (requestBytes > MAX_REQUEST_BYTES) abort(uploadError('REQUEST_TOO_LARGE'));
+        if (requestBytes > MAX_REQUEST_BYTES) abort('REQUEST_TOO_LARGE');
     }
 
-    function onDisconnect()
+    function onAborted()
     {
-        if (!req.complete) abort(uploadError('ABORTED'));
+        abort('ABORTED');
+    }
+
+    function onClose()
+    {
+        if (!req.complete) onAborted();
     }
 
     parser.on('file', (field, stream, { filename, mimeType }) =>
     {
-        stream.on('error', error => abort(uploadError('MALFORMED', error)));
+        stream.on('error', error => abort('MALFORMED', error));
         if (failure || field !== 'photos')
         {
             stream.resume();
             return;
         }
 
-        const tmpKey = `tmp/${newPhotoId()}-0`;
-        file = { index: 0, filename: filename ?? '', mimeType, tmpKey, bytes: 0, truncated: false };
-        stream.on('data', chunk =>
-        {
-            file.bytes += chunk.length;
-        });
-        stream.on('limit', () =>
-        {
-            file.truncated = true;
-        });
+        const index = files.length;
+        const tmpKey = 'tmp/' + uploadId + '-' + index;
+        const file = { index, filename: filename ?? '', mimeType, tmpKey, bytes: 0, truncated: false };
+        files.push(file);
 
-        writer = createWriteStream(storage.keyToPath(tmpKey), { flags: 'wx' });
-        writing = finished(writer).catch(error => abort(uploadError('STORAGE_ERROR', error)));
-        stream.pipe(writer);
+        try
+        {
+            const writer = fs.createWriteStream(storage.keyToPath(tmpKey), { flags: 'wx' });
+            const writing = finished(writer).catch(error => abort('STORAGE_ERROR', error));
+            const entry = { writer, writing, tmpKey, opened: false };
+            writers.push(entry);
+
+            writer.once('open', () =>
+            {
+                entry.opened = true;
+            });
+            stream.on('data', chunk =>
+            {
+                file.bytes += chunk.length;
+            });
+            stream.on('limit', () =>
+            {
+                file.truncated = true;
+            });
+            stream.pipe(writer);
+        }
+        catch (error)
+        {
+            abort('STORAGE_ERROR', error);
+        }
     });
 
-    parser.on('field', (field, value) =>
+    parser.on('field', (field, value, { valueTruncated }) =>
     {
-        if (!failure && (field === 'title_0' || field === 'alt_0')) fields.set(field, value);
+        if (!failure && /^(?:title|alt)_[0-4]$/.test(field)) fields.set(field, { value, truncated: valueTruncated });
     });
-    parser.on('filesLimit', () => abort(uploadError('TOO_MANY_FILES')));
-    parser.on('fieldsLimit', () => abort(uploadError('MALFORMED')));
-    parser.on('partsLimit', () => abort(uploadError('MALFORMED')));
-    parser.on('error', error => abort(uploadError('MALFORMED', error)));
+    parser.on('filesLimit', () => abort('TOO_MANY_FILES'));
+    parser.on('fieldsLimit', () => abort('MALFORMED'));
+    parser.on('partsLimit', () => abort('MALFORMED'));
+    parser.on('error', error => abort('MALFORMED', error));
 
     const closed = new Promise(resolve => parser.once('close', resolve));
     req.on('data', onData);
-    req.on('aborted', onDisconnect);
-    req.on('close', onDisconnect);
-    req.on('error', onDisconnect);
-    req.pipe(parser);
+    req.on('aborted', onAborted);
+    req.on('close', onClose);
+    req.on('error', onAborted);
+    if (req.aborted) onAborted();
+    else req.pipe(parser);
 
     try
     {
         await closed;
-        await writing;
+        await Promise.allSettled(writers.map(entry => entry.writing));
         if (failure) throw failure;
-        if (!file) throw uploadError('NO_FILES');
-        return { file, fields };
+        if (files.length === 0) throw uploadError('NO_FILES');
+        return { files, fields };
     }
     catch (error)
     {
-        if (file)
+        for (const { opened, tmpKey } of writers)
         {
-            await storage.deleteKey(file.tmpKey).catch(cleanupError => console.error(cleanupError));
+            if (opened) await deleteTemporaryFile(storage, tmpKey);
         }
         throw error;
     }
     finally
     {
         req.off('data', onData);
-        req.off('aborted', onDisconnect);
-        req.off('close', onDisconnect);
-        req.off('error', onDisconnect);
+        req.off('aborted', onAborted);
+        req.off('close', onClose);
+        req.off('error', onAborted);
     }
 }
 
-module.exports = { MAX_FILE_BYTES, parseMultipart };
+module.exports = { MAX_FILE_BYTES, deleteTemporaryFile, parseMultipart };

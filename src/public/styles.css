@@ -82,6 +82,48 @@ a
     cursor: wait;
 }
 
+.upload-files, .upload-file-fields
+{
+    display: grid;
+    gap: 0.5rem;
+}
+
+.upload-file
+{
+    min-width: 0;
+    margin: 0;
+    border: 1px solid #d4d4d8;
+}
+
+.upload-file legend, .upload-file-error, #upload-warning, #upload-error, #upload-results
+{
+    overflow-wrap: anywhere;
+}
+
+.upload-file-body
+{
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+}
+
+.upload-thumbnail
+{
+    display: block;
+    object-fit: contain;
+    background: #f2f2f0;
+}
+
+.upload-file-error, #upload-warning, #upload-error
+{
+    color: #892614;
+}
+
+.upload-file-error:empty, #upload-warning:empty, #upload-error:empty, #upload-results:empty
+{
+    display: none;
+}
+
 .photos
 {
     display: grid;

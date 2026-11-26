@@ -4,10 +4,11 @@ const { createApiRouter } = require('./routes/api');
 const { createMediaRouter } = require('./routes/media');
 const { createPagesRouter } = require('./routes/pages');
 
-function createApp({ prisma, storage })
+function createApp({ prisma, storage, faultInject = '' })
 {
     const app = express();
     app.set('view engine', 'ejs');
+    app.set('faultInject', process.env.NODE_ENV === 'test' ? faultInject : '');
     app.set('views', path.join(__dirname, 'views'));
     app.use(express.static(path.join(__dirname, 'public')));
 

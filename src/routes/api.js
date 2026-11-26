@@ -1,7 +1,7 @@
 const path = require('node:path');
 const express = require('express');
 const { uploadError } = require('../upload/errors');
-const { parseMultipart } = require('../upload/parseMultipart');
+const { deleteTemporaryFile, parseMultipart } = require('../upload/parseMultipart');
 const { savePhoto } = require('../upload/savePhoto');
 
 const requestStatuses = {
@@ -13,16 +13,69 @@ const requestStatuses = {
     STORAGE_ERROR: 500
 };
 
-function getMetadata(fields, filename)
+function getMetadata(fields, { index, filename })
 {
-    const title = (fields.get('title_0') ?? '').trim();
-    const alt = (fields.get('alt_0') ?? '').trim();
-    if (!alt) throw uploadError('ALT_REQUIRED');
-    if (Array.from(title).length > 120 || Array.from(alt).length > 250) throw uploadError('INVALID_FIELD');
+    const titleField = fields.get('title_' + index);
+    const altField = fields.get('alt_' + index);
+    const title = (titleField?.value ?? '').trim();
+    const alt = (altField?.value ?? '').trim();
+    if (!alt && !altField?.truncated) throw uploadError('ALT_REQUIRED');
+    if (titleField?.truncated || altField?.truncated || Array.from(title).length > 120 || Array.from(alt).length > 250)
+    {
+        throw uploadError('INVALID_FIELD');
+    }
 
     const basename = path.win32.parse(path.win32.basename(filename)).name.replace(/\p{Cc}/gu, '').trim();
     const fallback = Array.from(basename).slice(0, 120).join('');
     return { title: title || fallback || 'Ảnh không tên', alt };
+}
+
+async function uploadPhoto(prisma, storage, file, fields)
+{
+    const { index, filename } = file;
+    try
+    {
+        const metadata = getMetadata(fields, file);
+        const { id, title, variants } = await savePhoto({ prisma, storage, file, ...metadata });
+        return {
+            index,
+            filename,
+            ok: true,
+            photo: {
+                id,
+                title,
+                url: '/photos/' + id,
+                variants: variants.map(({ width, height, storageKey }) => ({ width, height, url: '/media/' + storageKey }))
+            }
+        };
+    }
+    catch (error)
+    {
+        if (error.code === 'STORAGE_ERROR') console.error(error);
+        return { index, filename, ok: false, error: { code: error.code, message: error.message } };
+    }
+}
+
+function sendRequestError(req, res, status, error)
+{
+    const payload = { error: { code: error.code, message: error.message } };
+    if (!req.complete || !['NOT_MULTIPART', 'NO_FILES'].includes(error.code)) res.set('Connection', 'close');
+    if (!error.drainRequest || req.complete) return res.status(status).json(payload);
+
+    // Flush the error before ending the socket so unread bytes do not reset the response.
+    const body = JSON.stringify(payload);
+    const endResponse = () => res.end();
+    const drainTimeout = setTimeout(endResponse, 250);
+    drainTimeout.unref();
+    req.once('end', endResponse);
+    res.once('close', () =>
+    {
+        clearTimeout(drainTimeout);
+        req.off('end', endResponse);
+    });
+
+    res.status(status).type('json').set('Content-Length', String(Buffer.byteLength(body))).write(body);
+    req.resume();
 }
 
 function createApiRouter(prisma, storage)
@@ -37,40 +90,39 @@ function createApiRouter(prisma, storage)
         }
         catch (error)
         {
-            if (error.code === 'ABORTED') return;
+            if (error.code === 'ABORTED')
+            {
+                console.warn(error.message);
+                return;
+            }
             const status = requestStatuses[error.code];
             if (!status) return next(error);
             if (status === 500) console.error(error);
-            if (!req.complete || status === 413) res.set('Connection', 'close');
-            return res.status(status).json({ error: { code: error.code, message: error.message } });
+            if (!res.destroyed) sendRequestError(req, res, status, error);
+            return;
         }
 
-        const { file, fields } = parsed;
-        const result = { index: file.index, filename: file.filename };
+        const { files, fields } = parsed;
+        const results = [];
+        const remaining = new Set(files.map(file => file.tmpKey));
         try
         {
-            const metadata = getMetadata(fields, file.filename);
-            const { id, title, variants } = await savePhoto({ prisma, storage, file, ...metadata });
-            result.ok = true;
-            result.photo = {
-                id,
-                title,
-                url: `/photos/${id}`,
-                variants: variants.map(({ width, height, storageKey }) => ({ width, height, url: `/media/${storageKey}` }))
-            };
+            for (const file of files)
+            {
+                results.push(await uploadPhoto(prisma, storage, file, fields));
+                if (await deleteTemporaryFile(storage, file.tmpKey)) remaining.delete(file.tmpKey);
+            }
         }
         catch (error)
         {
-            if (error.code === 'STORAGE_ERROR') console.error(error);
-            result.ok = false;
-            result.error = { code: error.code, message: error.message };
+            return next(error);
         }
         finally
         {
-            await storage.deleteKey(file.tmpKey).catch(error => console.error(`Không xóa được ${file.tmpKey}`, error));
+            for (const key of remaining) await deleteTemporaryFile(storage, key);
         }
 
-        res.json({ results: [result] });
+        res.json({ results });
     });
 
     return router;
