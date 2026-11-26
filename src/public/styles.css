@@ -1,0 +1,104 @@
+:root
+{
+    color-scheme: light;
+    color: #18181b;
+    background: #fafaf9;
+    font: 100%/1.5 system-ui, sans-serif;
+}
+
+body
+{
+    margin: 0;
+}
+
+main, nav
+{
+    padding-inline: 1rem;
+}
+
+header
+{
+    border-bottom: 1px solid #d4d4d8;
+}
+
+nav
+{
+    display: flex;
+    gap: 1rem;
+}
+
+nav a
+{
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+}
+
+a
+{
+    color: #194765;
+}
+
+:focus-visible
+{
+    outline: 2px solid #194765;
+    outline-offset: 3px;
+}
+
+.upload-form
+{
+    display: grid;
+    gap: 0.5rem;
+    max-width: 32rem;
+}
+
+.upload-form label:not(:first-child)
+{
+    margin-top: 0.5rem;
+}
+
+.upload-form :is(input, textarea, button)
+{
+    box-sizing: border-box;
+    max-width: 100%;
+    min-height: 2.75rem;
+    font: inherit;
+}
+
+.upload-form button
+{
+    justify-self: start;
+    padding-inline: 1rem;
+    border: 1px solid #194765;
+    border-radius: 4px;
+    color: #fff;
+    background: #194765;
+    cursor: pointer;
+}
+
+.upload-form button:disabled
+{
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.photos
+{
+    display: grid;
+    gap: 1.5rem;
+    max-width: 60rem;
+    padding: 0;
+    list-style: none;
+}
+
+.photos figure
+{
+    margin: 0;
+}
+
+.photos img
+{
+    display: block;
+    max-width: 100%;
+    height: auto;
+}

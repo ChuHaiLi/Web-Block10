@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PhotoStatus {
+  PUBLISHED
+  DELETING
+  PURGED
+}
+
+model Photo {
+  id              String         @id
+  title           String         @db.VarChar(120)
+  alt             String         @db.VarChar(250)
+  originalKey     String         @unique
+  originalWidth   Int
+  originalHeight  Int
+  status          PhotoStatus    @default(PUBLISHED)
+  currentVersion  Int            @default(1)
+  nextVersion     Int            @default(2)
+  createdAt       DateTime       @default(now())
+  deletedAt       DateTime?
+  purgedAt        DateTime?
+  versions        PhotoVersion[]
+  variants        PhotoVariant[]
+
+  @@index([status, createdAt])
+}
+
+model PhotoVersion {
+  photoId      String
+  version      Int
+  edits        Json
+  width        Int
+  height       Int
+  createdAt    DateTime       @default(now())
+  supersededAt DateTime?
+  purgedAt     DateTime?
+  photo        Photo          @relation(fields: [photoId], references: [id])
+  variants     PhotoVariant[]
+
+  @@id([photoId, version])
+}
+
+model PhotoVariant {
+  id           Int          @id @default(autoincrement())
+  photoId      String
+  version      Int
+  width        Int
+  height       Int
+  mime         String
+  bytes        Int
+  storageKey   String       @unique
+  photo        Photo        @relation(fields: [photoId], references: [id])
+  photoVersion PhotoVersion @relation(fields: [photoId, version], references: [photoId, version])
+
+  @@unique([photoId, version, width])
+}

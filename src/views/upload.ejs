@@ -1,0 +1,16 @@
+<h1>Tải ảnh lên</h1>
+<form id="upload-form" action="/api/uploads" method="post" enctype="multipart/form-data" class="upload-form">
+    <label for="photos">Ảnh JPEG hoặc PNG</label>
+    <input id="photos" name="photos" type="file" accept="image/jpeg,image/png" required>
+
+    <label for="title">Tiêu đề</label>
+    <input id="title" name="title_0" type="text" maxlength="120">
+
+    <label for="alt">Mô tả ảnh</label>
+    <textarea id="alt" name="alt_0" maxlength="250" rows="3" aria-describedby="alt-hint" required></textarea>
+    <small id="alt-hint">Mô tả nội dung ảnh, ví dụ Chó nằm dưới bàn.</small>
+
+    <button type="submit">Tải lên</button>
+</form>
+<p id="upload-status" role="status"></p>
+<script src="/upload.js" defer></script>
