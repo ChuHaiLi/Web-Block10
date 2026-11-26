@@ -74,6 +74,7 @@ Block10/
 ```
 PORT=3000
 DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/photo_gallery
+# Trong .env.test, đặt UPLOAD_ROOT riêng, ví dụ ../gallery-uploads-test.
 UPLOAD_ROOT=../gallery-uploads
 VERSION_RETENTION_HOURS=24
 CLEANUP_INTERVAL_MINUTES=15
@@ -82,6 +83,7 @@ FAULT_INJECT=
 ```
 
 - `UPLOAD_ROOT` tương đối thì resolve theo **thư mục gốc ứng dụng** (`path.resolve(__dirname, '..', value)` trong `config.js`), không theo `process.cwd()`.
+- Khi `NODE_ENV=test`, mặc định `UPLOAD_ROOT=../gallery-uploads-test`. Sau khi resolve, thư mục test phải khác `UPLOAD_ROOT` của `.env` (mặc định `../gallery-uploads`). Nếu trùng, `config.js` báo lỗi trước khi server hoặc CLI cleanup truy cập kho ảnh.
 - Lúc khởi động, tạo sẵn `UPLOAD_ROOT/{photos,originals,tmp,cleanup-queue}`.
 - `UPLOAD_ROOT` không được nằm trong `src/` hay `public/`, và phải có trong `.gitignore` nếu đặt trong repo.
 

@@ -1,7 +1,8 @@
 const path = require('node:path');
 const express = require('express');
 const { uploadError } = require('../upload/errors');
-const { deleteTemporaryFile, parseMultipart } = require('../upload/parseMultipart');
+const { createCleanupQueue } = require('../cleanup/queue');
+const { parseMultipart } = require('../upload/parseMultipart');
 const { savePhoto } = require('../upload/savePhoto');
 
 const requestStatuses = {
@@ -30,13 +31,13 @@ function getMetadata(fields, { index, filename })
     return { title: title || fallback || 'Ảnh không tên', alt };
 }
 
-async function uploadPhoto(prisma, storage, file, fields)
+async function uploadPhoto(prisma, storage, queue, faultInject, file, fields)
 {
     const { index, filename } = file;
     try
     {
         const metadata = getMetadata(fields, file);
-        const { id, title, variants } = await savePhoto({ prisma, storage, file, ...metadata });
+        const { id, title, variants } = await savePhoto({ prisma, storage, queue, faultInject, file, ...metadata });
         return {
             index,
             filename,
@@ -81,12 +82,13 @@ function sendRequestError(req, res, status, error)
 function createApiRouter(prisma, storage)
 {
     const router = express.Router();
+    const queue = createCleanupQueue(storage);
     router.post('/uploads', async (req, res, next) =>
     {
         let parsed;
         try
         {
-            parsed = await parseMultipart(req, storage);
+            parsed = await parseMultipart(req, storage, queue);
         }
         catch (error)
         {
@@ -105,12 +107,13 @@ function createApiRouter(prisma, storage)
         const { files, fields } = parsed;
         const results = [];
         const remaining = new Set(files.map(file => file.tmpKey));
+        const faultInject = req.app.get('faultInject');
         try
         {
             for (const file of files)
             {
-                results.push(await uploadPhoto(prisma, storage, file, fields));
-                if (await deleteTemporaryFile(storage, file.tmpKey)) remaining.delete(file.tmpKey);
+                results.push(await uploadPhoto(prisma, storage, queue, faultInject, file, fields));
+                if (await queue.deleteOrEnqueue(file.tmpKey, 'upload-temp')) remaining.delete(file.tmpKey);
             }
         }
         catch (error)
@@ -119,7 +122,7 @@ function createApiRouter(prisma, storage)
         }
         finally
         {
-            for (const key of remaining) await deleteTemporaryFile(storage, key);
+            for (const key of remaining) await queue.deleteOrEnqueue(key, 'upload-temp');
         }
 
         res.json({ results });

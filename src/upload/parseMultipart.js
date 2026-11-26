@@ -8,21 +8,7 @@ const MAX_FILES = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 55 * 1024 * 1024;
 
-async function deleteTemporaryFile(storage, key)
-{
-    try
-    {
-        await storage.deleteKey(key);
-        return true;
-    }
-    catch (error)
-    {
-        console.error('Không xóa được ' + key, error);
-        return false;
-    }
-}
-
-async function parseMultipart(req, storage)
+async function parseMultipart(req, storage, queue)
 {
     if (!/^multipart\/form-data(?:\s*;|$)/i.test(req.headers['content-type'] ?? ''))
     {
@@ -156,7 +142,7 @@ async function parseMultipart(req, storage)
     {
         for (const { opened, tmpKey } of writers)
         {
-            if (opened) await deleteTemporaryFile(storage, tmpKey);
+            if (opened) await queue.deleteOrEnqueue(tmpKey, 'upload-abort');
         }
         throw error;
     }
@@ -169,4 +155,4 @@ async function parseMultipart(req, storage)
     }
 }
 
-module.exports = { MAX_FILE_BYTES, deleteTemporaryFile, parseMultipart };
+module.exports = { MAX_FILE_BYTES, parseMultipart };

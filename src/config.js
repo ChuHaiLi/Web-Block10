@@ -2,14 +2,31 @@ const path = require('node:path');
 const dotenv = require('dotenv');
 
 const appRoot = path.resolve(__dirname, '..');
+const defaultDevRoot = '../gallery-uploads';
+const defaultTestRoot = '../gallery-uploads-test';
+
+function readEnv(filename)
+{
+    return dotenv.config({ path: path.join(appRoot, filename), processEnv: {} }).parsed ?? {};
+}
 
 function loadConfig({ nodeEnv = process.env.NODE_ENV, uploadRoot } = {})
 {
     const isTest = nodeEnv === 'test';
-    const envFile = path.join(appRoot, isTest ? '.env.test' : '.env');
-    const fileEnv = dotenv.config({ path: envFile, processEnv: {} }).parsed ?? {};
+    const devEnv = readEnv('.env');
+    const envFile = isTest ? '.env.test' : '.env';
+    const fileEnv = isTest ? readEnv(envFile) : devEnv;
     const env = isTest ? fileEnv : { ...fileEnv, ...process.env };
-    const root = path.resolve(appRoot, uploadRoot ?? (env.UPLOAD_ROOT || '../gallery-uploads'));
+    const root = path.resolve(appRoot, uploadRoot ?? (env.UPLOAD_ROOT || (isTest ? defaultTestRoot : defaultDevRoot)));
+
+    if (isTest)
+    {
+        const devRoot = path.resolve(appRoot, devEnv.UPLOAD_ROOT || defaultDevRoot);
+        if (path.relative(devRoot, root) === '')
+        {
+            throw new Error('Test UPLOAD_ROOT must differ from the dev UPLOAD_ROOT in .env');
+        }
+    }
 
     for (const directory of [__dirname, path.join(appRoot, 'public')])
     {
@@ -22,7 +39,7 @@ function loadConfig({ nodeEnv = process.env.NODE_ENV, uploadRoot } = {})
 
     if (!env.DATABASE_URL)
     {
-        throw new Error(`DATABASE_URL is missing from ${path.basename(envFile)}`);
+        throw new Error(`DATABASE_URL is missing from ${envFile}`);
     }
 
     return {

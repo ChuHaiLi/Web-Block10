@@ -2,7 +2,7 @@ const { newPhotoId } = require('../ids');
 const { uploadError } = require('./errors');
 const { processImage } = require('./processImage');
 
-async function savePhoto({ prisma, storage, file, title, alt })
+async function savePhoto({ prisma, storage, queue, faultInject, file, title, alt })
 {
     const id = newPhotoId();
     const writtenKeys = [];
@@ -23,6 +23,7 @@ async function savePhoto({ prisma, storage, file, title, alt })
                 }
             });
             await tx.photoVariant.createMany({ data: variants.map(variant => ({ ...variant, photoId: id, version: 1 })) });
+            if (process.env.NODE_ENV === 'test' && faultInject === 'db-after-write') throw new Error('FAULT_INJECT');
         });
 
         return { id, title, variants };
@@ -31,7 +32,7 @@ async function savePhoto({ prisma, storage, file, title, alt })
     {
         for (const key of writtenKeys)
         {
-            await storage.deleteKey(key).catch(cleanupError => console.error(`Không xóa được ${key}`, cleanupError));
+            await queue.deleteOrEnqueue(key, 'upload-rollback');
         }
 
         if (['TOO_LARGE', 'NOT_IMAGE', 'CORRUPT', 'TOO_MANY_PIXELS', 'UNSUPPORTED_DIMENSIONS'].includes(error.code)) throw error;

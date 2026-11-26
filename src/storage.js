@@ -1,11 +1,56 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { setTimeout: delay } = require('node:timers/promises');
 
 const variantKeyPattern = /^photos\/[A-Za-z0-9_-]{12}\/v\d+\/\d+\.webp$/;
 const originalKeyPattern = /^originals\/[A-Za-z0-9_-]{12}\.png$/;
 const temporaryKeyPattern = /^tmp\/[A-Za-z0-9_-]{12}-\d+$/;
 const queueKeyPattern = /^cleanup-queue\/\d+-[a-f0-9]{12}\.(?:tmp|json|bad)$/;
 const directories = ['photos', 'originals', 'tmp', 'cleanup-queue'];
+
+async function retryWindowsFs(operation)
+{
+    const retries = process.platform === 'win32' ? 2 : 0;
+    for (let attempt = 0; ; attempt++)
+    {
+        try
+        {
+            return await operation();
+        }
+        catch (error)
+        {
+            // Windows can report EPERM while another process is removing the same path.
+            if (attempt >= retries || !['EPERM', 'EBUSY'].includes(error.code)) throw error;
+            await delay(10);
+        }
+    }
+}
+
+async function unlinkIfPresent(filePath)
+{
+    try
+    {
+        await retryWindowsFs(() => fs.unlink(filePath));
+        return true;
+    }
+    catch (error)
+    {
+        if (error.code !== 'ENOENT') throw error;
+        return false;
+    }
+}
+
+async function removeEmptyDirectory(directory)
+{
+    try
+    {
+        await retryWindowsFs(() => fs.rmdir(directory));
+    }
+    catch (error)
+    {
+        if (error.code !== 'ENOENT' && error.code !== 'ENOTEMPTY') throw error;
+    }
+}
 
 function createStorage(uploadRoot)
 {
@@ -44,30 +89,17 @@ function createStorage(uploadRoot)
     async function deleteKey(key)
     {
         const filePath = keyToPath(key);
-        try
-        {
-            await fs.unlink(filePath);
-        }
-        catch (error)
-        {
-            if (error.code !== 'ENOENT') throw error;
-        }
+        const removed = await unlinkIfPresent(filePath);
 
         if (variantKeyPattern.test(key))
         {
             const versionDir = path.dirname(filePath);
             for (const directory of [versionDir, path.dirname(versionDir)])
             {
-                try
-                {
-                    await fs.rmdir(directory);
-                }
-                catch (error)
-                {
-                    if (error.code !== 'ENOENT' && error.code !== 'ENOTEMPTY') throw error;
-                }
+                await removeEmptyDirectory(directory);
             }
         }
+        return removed;
     }
 
     function listDir(directory)
@@ -79,4 +111,4 @@ function createStorage(uploadRoot)
     return { root, initialize, keyToPath, writeFile, deleteKey, listDir };
 }
 
-module.exports = { createStorage, variantKeyPattern };
+module.exports = { createStorage, variantKeyPattern, originalKeyPattern, retryWindowsFs, unlinkIfPresent, removeEmptyDirectory };
