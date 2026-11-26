@@ -242,3 +242,144 @@ a
 {
     background: #f8eae5;
 }
+
+.photo-editor
+{
+    max-width: 64rem;
+    margin-inline: auto;
+    padding-bottom: 2rem;
+    overflow-wrap: anywhere;
+}
+
+.photo-editor h1
+{
+    margin-bottom: 0.25rem;
+}
+
+.edit-title
+{
+    margin-top: 0;
+}
+
+#edit-controls
+{
+    min-width: 0;
+    margin: 0;
+    padding: 1rem;
+    border: 1px solid #d4d4d8;
+}
+
+.edit-buttons
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.photo-editor button, .edit-checkbox
+{
+    min-height: 2.75rem;
+    font: inherit;
+}
+
+.photo-editor button
+{
+    padding-inline: 0.75rem;
+    border: 1px solid #194765;
+    border-radius: 4px;
+    color: #194765;
+    background: transparent;
+    cursor: pointer;
+}
+
+.photo-editor button:hover:not(:disabled)
+{
+    background: #e7eef2;
+}
+
+.photo-editor .edit-primary
+{
+    color: #fff;
+    background: #194765;
+}
+
+.photo-editor .edit-primary:hover:not(:disabled)
+{
+    background: #12364d;
+}
+
+.photo-editor button:disabled
+{
+    opacity: 0.6;
+    cursor: default;
+}
+
+.edit-checkbox
+{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding-inline: 0.5rem;
+}
+
+.crop-stage
+{
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    vertical-align: top;
+}
+
+.crop-stage[hidden]
+{
+    display: none;
+}
+
+.photo-editor canvas
+{
+    display: block;
+    max-width: 100%;
+    max-height: min(65vh, 48rem);
+}
+
+#edit-canvas
+{
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.crop-outline
+{
+    position: absolute;
+    box-shadow: 0 0 0 200rem rgb(0 0 0 / 48%);
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+    pointer-events: none;
+}
+
+.crop-preview
+{
+    margin: 1rem 0 0;
+}
+
+.crop-preview figcaption
+{
+    margin-bottom: 0.5rem;
+}
+
+.edit-actions
+{
+    margin-top: 1rem;
+}
+
+#edit-error
+{
+    color: #892614;
+}
+
+#edit-status:empty, #edit-error:empty
+{
+    margin: 0;
+}

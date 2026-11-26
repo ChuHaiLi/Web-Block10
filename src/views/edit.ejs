@@ -1,0 +1,37 @@
+<article class="photo-editor">
+    <p><a href="/photos/<%= photo.id %>">Quay lại ảnh</a></p>
+    <h1>Chỉnh sửa ảnh</h1>
+    <p class="edit-title"><%= photo.title %></p>
+
+    <form id="edit-form" action="/api/photos/<%= photo.id %>/edits"
+          data-detail="/photos/<%= photo.id %>" data-source="/photos/<%= photo.id %>/edit/source"
+          data-initial="<%= JSON.stringify(initial) %>">
+        <fieldset id="edit-controls" disabled>
+            <legend>Chỉnh sửa</legend>
+            <div class="edit-buttons">
+                <button id="rotate-left" type="button">Xoay trái</button>
+                <button id="rotate-right" type="button">Xoay phải</button>
+                <label class="edit-checkbox"><input id="flip-horizontal" type="checkbox"<% if (initial.edits.flipH) { %> checked<% } %>> Lật ngang</label>
+                <button id="clear-crop" type="button">Bỏ crop</button>
+            </div>
+            <p id="crop-hint">Kéo trên ảnh hoặc chạm lần lượt vào hai góc đối diện để chọn vùng giữ lại.</p>
+            <div id="crop-stage" class="crop-stage" hidden>
+                <canvas id="edit-canvas" role="img" aria-label="<%= photo.alt %>" aria-describedby="crop-hint"></canvas>
+                <span id="crop-outline" class="crop-outline" aria-hidden="true" hidden></span>
+            </div>
+            <figure id="crop-preview" class="crop-preview" hidden>
+                <figcaption>Xem trước vùng crop</figcaption>
+                <canvas id="crop-canvas" role="img" aria-label="<%= photo.alt %>"></canvas>
+            </figure>
+            <div class="edit-buttons edit-actions">
+                <button class="edit-primary" type="submit">Lưu</button>
+                <button id="restore-photo" type="button">Khôi phục</button>
+            </div>
+        </fieldset>
+        <p id="edit-status" role="status">Đang tải ảnh…</p>
+        <p id="edit-error" role="alert"></p>
+        <button id="reload-edit" type="button" hidden>Tải lại trang</button>
+    </form>
+    <noscript>Trang chỉnh sửa cần JavaScript.</noscript>
+</article>
+<script src="/edit.js" defer></script>

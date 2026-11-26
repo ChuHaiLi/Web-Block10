@@ -61,6 +61,38 @@ function createPagesRouter(prisma, storage)
         }
     });
 
+    router.get('/photos/:id/edit', async (req, res, next) =>
+    {
+        try
+        {
+            const photo = await prisma.photo.findUnique({
+                where: { id: req.params.id, status: 'PUBLISHED' },
+                select: { id: true, title: true, alt: true, originalWidth: true, originalHeight: true, currentVersion: true }
+            });
+            if (!photo) return next();
+
+            const version = await prisma.photoVersion.findUniqueOrThrow({
+                where: { photoId_version: { photoId: photo.id, version: photo.currentVersion } },
+                select: { edits: true }
+            });
+            res.set('Cache-Control', 'private, no-store').render('layout', {
+                title: 'Chỉnh sửa ảnh',
+                page: 'edit',
+                photo,
+                initial: {
+                    baseVersion: photo.currentVersion,
+                    originalWidth: photo.originalWidth,
+                    originalHeight: photo.originalHeight,
+                    edits: version.edits
+                }
+            });
+        }
+        catch (error)
+        {
+            next(error);
+        }
+    });
+
     router.get('/photos/:id/edit/source', async (req, res, next) =>
     {
         try

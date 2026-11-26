@@ -90,6 +90,7 @@ test('pages chi tiết có ảnh eager, metadata, bảng variant và form xác n
         assert.ok(rows[index].includes('href="/media/' + variant.storageKey + '"'));
     }
     assert.ok(detail.text.includes('method="post" action="' + url + '/delete"'));
+    assert.ok(detail.text.includes('<a href="' + url + '/edit">Chỉnh sửa</a>'));
     assert.match(detail.text, /onsubmit="return window\.confirm\(/);
     assert.match(detail.text, /<button type="submit">Xóa<\/button>/);
 });
@@ -113,11 +114,34 @@ test('pages loại ảnh DELETING và PURGED khỏi gallery, chi tiết trả 40
     const gallery = await request.get('/').expect(200);
     assert.deepEqual(Array.from(gallery.text.matchAll(/class="photo-card" href="([^"]+)"/g), ([, url]) => url), [published.url]);
     await request.get(published.url).expect(200);
+    await request.get(published.url + '/edit').expect(200);
     for (const url of [deleting.url, purged.url, '/photos/aaaaaaaaaaaa'])
     {
         const missing = await request.get(url).expect(404);
         assert.match(missing.text, /Không tìm thấy trang/);
+        await request.get(url + '/edit').expect(404);
     }
+});
+
+test('pages nạp edits hiện tại và kích thước gốc cho trang chỉnh sửa', async t =>
+{
+    const { request, uploadFiles } = await prepareTest(t);
+    const { body } = await uploadFiles([{ filename: 'corners.png' }]).expect(200);
+    assert.equal(body.results[0].ok, true);
+    const { id, url } = body.results[0].photo;
+    const edits = { rotate: 90, flipH: true, crop: { x: 12, y: 25, width: 100, height: 150 } };
+    await request.post('/api/photos/' + id + '/edits').send({ baseVersion: 1, ...edits }).expect(200);
+
+    const page = await request.get(url + '/edit').expect(200).expect('Cache-Control', 'private, no-store');
+    const [, encoded] = page.text.match(/data-initial="([^"]+)"/);
+    assert.deepEqual(JSON.parse(encoded.replaceAll('&#34;', '"')), {
+        baseVersion: 2,
+        originalWidth: 400,
+        originalHeight: 300,
+        edits
+    });
+    assert.ok(page.text.includes('data-source="' + url + '/edit/source"'));
+    assert.match(page.text, /<script src="\/edit\.js" defer>/);
 });
 
 test('pages dùng variant của currentVersion và fallback về variant nhỏ nhất nếu mọi width > 960', async t =>
