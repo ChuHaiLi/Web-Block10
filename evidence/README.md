@@ -4,9 +4,9 @@ Mọi bằng chứng phải lấy từ **cùng một lần chạy** (cùng DB, c
 
 | Ô ghi nhận | Giá trị |
 |---|---|
-| **photoId cho mục 01–04** (ảnh `exif-rotated.jpg`) | ____________________ |
-| photoId của `photo.jpg` (mục 06, 07 và 19) | ____________________ |
-| Ngày giờ bắt đầu lần chạy | ____________________ |
+| **photoId cho mục 01–04** (ảnh `exif-rotated.jpg`) | `PhqMCFNBVva8` |
+| photoId của `photo.jpg` (mục 06, 07 và 19) | `VZ5SR5hGdKSa` |
+| Ngày giờ bắt đầu lần chạy | 27/11/2026 19:48 (UTC+7, lúc upload hai ảnh) |
 
 ## Chuẩn bị chung
 
