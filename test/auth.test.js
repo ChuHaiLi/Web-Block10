@@ -150,11 +150,15 @@ test('auth.session cookie dùng chung giữa hai app, HTML private và media kh�
     assert.ok(stale.text.includes('href="/login"'));
     assert.equal(await prisma.session.count(), 0);
 
-    await prisma.session.create({
-        data: { sid: 'expired-session', data: '{}', userId: session.userId, expiresAt: new Date(Date.now() - 1000) }
+    const now = Date.now();
+    await prisma.session.createMany({
+        data: [
+            { sid: 'expired-session', data: '{}', userId: session.userId, expiresAt: new Date(now - 1) },
+            { sid: 'active-session', data: '{}', userId: session.userId, expiresAt: new Date(now + 60_000) }
+        ]
     });
-    assert.equal((await runCleanup({ prisma, objectStore, scratch })).expiredSessionsRemoved, 1);
-    assert.equal(await prisma.session.count(), 0);
+    assert.equal((await runCleanup({ prisma, objectStore, scratch, now })).expiredSessionsRemoved, 1);
+    assert.deepEqual(await prisma.session.findMany({ select: { sid: true } }), [{ sid: 'active-session' }]);
 });
 
 test('auth.origin yêu cầu Origin hoặc Referer cùng scheme, host và cổng cho request thay đổi dữ liệu', async t =>

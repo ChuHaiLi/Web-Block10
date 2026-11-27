@@ -250,6 +250,17 @@ a
     overflow-wrap: anywhere;
 }
 
+.photo-author
+{
+    display: block;
+    font-weight: 400;
+}
+
+.photo-detail .photo-author
+{
+    margin: 0 0 1rem;
+}
+
 .photo-image
 {
     display: block;

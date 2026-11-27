@@ -10,10 +10,12 @@
     <header class="site-header">
         <span class="site-name">Photo Gallery</span>
         <nav aria-label="Điều hướng chính">
-            <a href="/"<% if (page === 'gallery') { %> aria-current="page"<% } %>>Gallery</a>
+            <a href="/"<% if (page === 'gallery' && !myPhotos) { %> aria-current="page"<% } %>>Gallery</a>
             <% if (user) { %>
                 <a href="/upload"<% if (page === 'upload') { %> aria-current="page"<% } %>>Upload</a>
+                <a href="/me"<% if (page === 'gallery' && myPhotos) { %> aria-current="page"<% } %>>Ảnh của tôi</a>
                 <span class="site-user"><%= user.username %></span>
+                <a href="/account/password"<% if (page === 'password') { %> aria-current="page"<% } %>>Đổi mật khẩu</a>
                 <form method="post" action="/logout">
                     <button type="submit">Đăng xuất</button>
                 </form>

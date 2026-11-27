@@ -8,6 +8,7 @@ const displayedVariants = {
     where: { photoVersion: { purgedAt: null } },
     orderBy: { width: 'asc' }
 };
+const displayedRelations = { variants: displayedVariants, owner: { select: { username: true } } };
 
 function presentPhoto(photo)
 {
@@ -24,23 +25,27 @@ function presentPhoto(photo)
 function createPagesRouter(prisma, objectStore)
 {
     const router = express.Router();
-    router.get('/', async (req, res, next) =>
+    const galleryPage = myPhotos => async (req, res, next) =>
     {
+        if (myPhotos && !req.user) return redirectToLogin(res, '/me');
+
         try
         {
             const records = await prisma.photo.findMany({
-                where: { status: 'PUBLISHED' },
+                where: { status: 'PUBLISHED', ...(myPhotos ? { ownerId: req.user.id } : {}) },
                 orderBy: { createdAt: 'desc' },
-                include: { variants: displayedVariants }
+                include: displayedRelations
             });
             const photos = records.map(presentPhoto).filter(Boolean);
-            res.render('layout', { title: 'Gallery', page: 'gallery', photos });
+            res.render('layout', { title: myPhotos ? 'Ảnh của tôi' : 'Gallery', page: 'gallery', photos, myPhotos });
         }
         catch (error)
         {
             next(error);
         }
-    });
+    };
+    router.get('/', galleryPage(false));
+    router.get('/me', galleryPage(true));
 
     router.get('/photos/:id', async (req, res, next) =>
     {
@@ -48,7 +53,7 @@ function createPagesRouter(prisma, objectStore)
         {
             const record = await prisma.photo.findUnique({
                 where: { id: req.params.id, status: 'PUBLISHED' },
-                include: { variants: displayedVariants }
+                include: displayedRelations
             });
             const photo = record && presentPhoto(record);
             if (!photo) return next();

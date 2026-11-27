@@ -140,7 +140,7 @@ async function gallerySessionCookie(agent)
     return cookie.split(';', 1)[0];
 }
 
-async function prepareTest(t, { faultInject, authenticated = true } = {})
+async function prepareTest(t, { faultInject, authenticated = true, now } = {})
 {
     process.env.NODE_ENV = 'test';
     const { databaseUrl, storageDriver, sessionSecret, cookieSecure } = loadConfig({ storageDriver: process.env.STORAGE_DRIVER });
@@ -173,7 +173,7 @@ async function prepareTest(t, { faultInject, authenticated = true } = {})
     });
 
     await resetDb();
-    const authOptions = { sessionSecret, cookieSecure };
+    const authOptions = { sessionSecret, cookieSecure, now };
     const app = createApp({ prisma, ...stores, faultInject, ...authOptions });
     const guest = withOrigin(supertest(app));
     const request = authenticated ? await registerAndLogin(app) : guest;

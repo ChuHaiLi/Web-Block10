@@ -77,7 +77,7 @@ async function sendFixtures(endpoint, cookie, names, missingAlt)
 
     const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { Origin: endpoint.origin, Cookie: cookie },
+        headers: { Origin: endpoint.origin, ...(cookie ? { Cookie: cookie } : {}) },
         body: data,
         redirect: 'error',
         signal: AbortSignal.timeout(timeoutMs)
@@ -168,6 +168,47 @@ async function writeMixedEvidence(prisma, endpoint, cookie, { filename, names, m
 
     await fs.writeFile(path.join(evidence, filename), JSON.stringify(response.body, null, 2) + '\n');
     console.log(filename + ' HTTP ' + response.status + ' Photo ' + ids.join(', '));
+    return results.find(result => result.ok).photo;
+}
+
+async function writeAccessEvidence(endpoint, photo)
+{
+    const otherCookie = await registerEvidenceUser(endpoint);
+    const guestUpload = await sendFixtures(endpoint, null, ['small.png']);
+    const get = url => fetch(new URL(url, endpoint), { redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
+    const uploadPage = await get('/upload');
+    const loginLocation = uploadPage.headers.get('location');
+    await uploadPage.arrayBuffer();
+
+    const otherDelete = await fetch(new URL(photo.url + '/delete', endpoint), {
+        method: 'POST',
+        headers: { Origin: endpoint.origin, Cookie: otherCookie },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(timeoutMs)
+    });
+    await otherDelete.arrayBuffer();
+    const gallery = await get('/');
+    const showsPhoto = (await gallery.text()).includes('href="' + photo.url + '"');
+    const mediaUrl = photo.variants[0].url;
+    const media = await get(mediaUrl);
+    await media.arrayBuffer();
+
+    const uploadCode = guestUpload.body?.error?.code;
+    const report = [
+        'Khách POST /api/uploads → HTTP ' + guestUpload.status + ' ' + (uploadCode ?? ''),
+        'Khách GET /upload → HTTP ' + uploadPage.status + ' ' + (loginLocation ?? ''),
+        'Người khác POST ' + photo.url + '/delete → HTTP ' + otherDelete.status,
+        'Khách GET / → HTTP ' + gallery.status + ' · ảnh ' + photo.id + ' hiển thị: ' + (showsPhoto ? 'có' : 'không'),
+        'Khách GET ' + mediaUrl + ' → HTTP ' + media.status
+    ].join('\n');
+    await fs.writeFile(path.join(evidence, '17-auth-access.txt'), report + '\n');
+    console.log('17-auth-access.txt\n' + report);
+    if (guestUpload.status !== 401 || uploadCode !== 'UNAUTHENTICATED' ||
+        uploadPage.status !== 303 || loginLocation !== '/login?next=/upload' ||
+        otherDelete.status !== 403 || gallery.status !== 200 || !showsPhoto || media.status !== 200)
+    {
+        throw new Error('Quyền truy cập ngoài dự kiến. Xem evidence/17-auth-access.txt.');
+    }
 }
 
 async function captureLimit(prisma, label, send)
@@ -188,7 +229,7 @@ async function main()
         await prisma.$connect();
         const cookie = await registerEvidenceUser(endpoint);
         await fs.mkdir(evidence, { recursive: true });
-        await writeMixedEvidence(prisma, endpoint, cookie, {
+        const photo = await writeMixedEvidence(prisma, endpoint, cookie, {
             filename: '08a-invalid-files.json',
             names: ['photo.jpg', 'fake.jpg', 'truncated.jpg'],
             errorCodes: [null, 'NOT_IMAGE', 'CORRUPT']
@@ -218,6 +259,7 @@ async function main()
         {
             throw new Error('Giới hạn request hoặc số Photo ngoài dự kiến. Xem evidence/09-request-limits.txt.');
         }
+        await writeAccessEvidence(endpoint, photo);
     }
     finally
     {

@@ -1,7 +1,8 @@
 const assert = require('node:assert/strict');
+const path = require('node:path');
 const { test } = require('node:test');
 const sharp = require('sharp');
-const { prepareTest } = require('./helpers');
+const { prepareTest, registerAndLogin } = require('./helpers');
 
 const gallerySizes = '(max-width: 599px) 100vw, (max-width: 999px) 50vw, 33vw';
 const detailSizes = '(max-width: 1600px) 100vw, 1600px';
@@ -54,7 +55,7 @@ test('pages gallery rỗng có link Upload và ảnh được sắp mới nhất
     assert.deepEqual(images[0].srcset.split(', ').map(candidate => candidate.split(' ').at(-1)), ['320w', '800w']);
     assertImage(images[0], { variants: png.variants, coverWidth: 800, sizes: gallerySizes, loading: 'lazy', alt: 'Ảnh &lt;PNG&gt; &amp; sân' });
     assertImage(images[1], { variants: jpeg.variants, coverWidth: 960, sizes: gallerySizes, loading: 'lazy', alt: 'Ảnh JPEG' });
-    assert.match(gallery.text, /<figcaption>Ảnh mới<\/figcaption>/);
+    assert.match(gallery.text, /<figcaption>\s*Ảnh mới\s*<span class="photo-author">Đăng bởi test-user<\/span>/);
 });
 
 test('pages chi tiết có ảnh eager, metadata, bảng variant và form xác nhận xóa', async t =>
@@ -77,6 +78,7 @@ test('pages chi tiết có ảnh eager, metadata, bảng variant và form xác n
     assert.equal(images.length, 1);
     assertImage(images[0], { variants, coverWidth: 800, sizes: detailSizes, loading: 'eager', alt });
     assert.ok(detail.text.includes('<h1>' + title + '</h1>'));
+    assert.match(detail.text, /<h1>Ảnh chi tiết<\/h1>\s*<p class="photo-author">Đăng bởi test-user<\/p>/);
     assert.ok(detail.text.includes('<dd>' + alt + '</dd>'));
     assert.ok(detail.text.includes('<time datetime="' + createdAt.toISOString() + '">'));
     assert.match(detail.text, /<dt>Phiên bản<\/dt>\s*<dd>1<\/dd>/);
@@ -93,6 +95,54 @@ test('pages chi tiết có ảnh eager, metadata, bảng variant và form xác n
     assert.ok(detail.text.includes('<a href="' + url + '/edit">Chỉnh sửa</a>'));
     assert.match(detail.text, /onsubmit="return window\.confirm\(/);
     assert.match(detail.text, /<button type="submit">Xóa<\/button>/);
+});
+
+test('pages ảnh của tôi chỉ có ảnh PUBLISHED của mình, mới nhất trước và dùng ảnh responsive như gallery', async t =>
+{
+    const { app, prisma, request, guest, uploadFiles } = await prepareTest(t);
+    await guest.get('/me').expect('Location', '/login?next=/me').expect(303);
+    const guestGallery = await guest.get('/').expect(200);
+    assert.doesNotMatch(guestGallery.text, /href="\/(?:me|account\/password)"/);
+    const empty = await request.get('/me').expect('Cache-Control', 'private, no-store').expect(200);
+    assert.match(empty.text, /<h1>Ảnh của tôi<\/h1>/);
+    assert.match(empty.text, /Bạn chưa đăng ảnh nào <a href="\/upload">Tải ảnh lên<\/a>/);
+    assert.match(empty.text, /href="\/me" aria-current="page">Ảnh của tôi<\/a>/);
+    assert.doesNotMatch(empty.text, /href="\/" aria-current/);
+    assert.match(empty.text, /href="\/account\/password">Đổi mật khẩu<\/a>/);
+
+    const { body } = await uploadFiles([
+        { filename: 'small.png', title: 'Ảnh của tôi cũ', altText: 'Ảnh cũ' },
+        { filename: 'small.png', title: 'Ảnh đang xóa' },
+        { filename: 'small.png', title: 'Ảnh đã xóa' },
+        { filename: 'small.png', title: 'Ảnh của tôi mới', altText: 'Ảnh mới' }
+    ]).expect(200);
+    const [older, deleting, purged, newer] = body.results.map(result =>
+    {
+        assert.equal(result.ok, true);
+        return result.photo;
+    });
+    await prisma.$transaction([
+        prisma.photo.update({ where: { id: older.id }, data: { createdAt: new Date('2026-01-01T00:00:00Z') } }),
+        prisma.photo.update({ where: { id: newer.id }, data: { createdAt: new Date('2026-02-01T00:00:00Z') } }),
+        prisma.photo.update({ where: { id: deleting.id }, data: { status: 'DELETING' } }),
+        prisma.photo.update({ where: { id: purged.id }, data: { status: 'PURGED' } })
+    ]);
+    const other = await registerAndLogin(app, { username: 'other-owner' });
+    const uploaded = await other.post('/api/uploads').field('title_0', 'Ảnh của người khác').field('alt_0', 'Ảnh khác')
+        .attach('photos', path.join(__dirname, 'fixtures', 'small.png')).expect(200);
+    assert.equal(uploaded.body.results[0].ok, true);
+    const otherPhoto = uploaded.body.results[0].photo;
+
+    const myPhotos = await request.get('/me').expect(200);
+    const cardUrls = html => Array.from(html.matchAll(/class="photo-card" href="([^"]+)"/g), ([, url]) => url);
+    assert.deepEqual(cardUrls(myPhotos.text), [newer.url, older.url]);
+    assert.deepEqual(cardUrls((await other.get('/me').expect(200)).text), [otherPhoto.url]);
+    const gallery = await guest.get('/').expect(200);
+    assert.match(gallery.text, /Ảnh của người khác\s*<span class="photo-author">Đăng bởi other-owner<\/span>/);
+    const detail = await request.get(otherPhoto.url).expect(200);
+    assert.match(detail.text, /Đăng bởi other-owner/);
+    const publicImages = imageAttributes(gallery.text);
+    assert.deepEqual(imageAttributes(myPhotos.text), publicImages.filter(image => ['Ảnh mới', 'Ảnh cũ'].includes(image.alt)));
 });
 
 test('pages loại ảnh DELETING và PURGED khỏi gallery, chi tiết trả 404', async t =>

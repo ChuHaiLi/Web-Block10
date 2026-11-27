@@ -7,7 +7,7 @@ const { createAuthRouter } = require('./routes/auth');
 const { originCheck } = require('./auth/originCheck');
 const { sessionMiddleware, loadUser } = require('./auth/session');
 
-function createApp({ prisma, objectStore, scratch, sessionSecret, cookieSecure = false, faultInject = '' })
+function createApp({ prisma, objectStore, scratch, sessionSecret, cookieSecure = false, faultInject = '', now = Date.now })
 {
     const app = express();
     app.set('view engine', 'ejs');
@@ -28,7 +28,7 @@ function createApp({ prisma, objectStore, scratch, sessionSecret, cookieSecure =
         res.set('Cache-Control', 'private, no-store');
         next();
     });
-    app.use(createAuthRouter(prisma, cookieSecure));
+    app.use(createAuthRouter(prisma, cookieSecure, now));
     app.use(createPagesRouter(prisma, objectStore));
 
     app.use((req, res) =>

@@ -30,6 +30,10 @@ npm run dev
 
 Mở `http://localhost:3000` để xem gallery hoặc `/upload` để tải ảnh lên. Các lệnh migration ở trên đọc URL từ file môi trường tương ứng khi terminal chưa đặt `DATABASE_URL`. DB dev và DB test dùng cùng bộ migration.
 
+Khách có thể xem gallery, trang chi tiết và ảnh. Đăng ký ở `/register` hoặc đăng nhập trước khi upload. Mở **Ảnh của tôi** để xem ảnh đang công bố của tài khoản. Chỉ người đăng ảnh mới có thể chỉnh sửa và xóa ảnh đó.
+
+Sau 5 lần nhập sai mật khẩu, tài khoản bị khóa 15 phút, kể cả khi nhập đúng trong thời gian này. Nhập sai mật khẩu hiện tại khi đổi mật khẩu cũng được tính. Người khác có thể cố tình nhập sai để khóa tạm tài khoản của bạn. Khi đổi mật khẩu thành công, thiết bị đang dùng vẫn đăng nhập và các phiên khác của cùng tài khoản bị đăng xuất.
+
 ```sh
 npm test
 ```
@@ -98,7 +102,7 @@ Hai PNG biên dung lượng được tạo từ ảnh RGB nhiễu, thêm chunk `
 
 ## Lấy bằng chứng
 
-Dùng cùng một `photoId` cho mục 01–04 và lưu kết quả theo checklist. Che thông tin xác thực nếu xuất hiện trong ảnh chụp hoặc log. [Checklist bằng chứng](evidence/README.md)
+Đăng ký và đăng nhập trước khi lấy bằng chứng có thao tác upload, sửa hoặc xóa. Dùng cùng một `photoId` cho mục 01–04 và lưu kết quả theo checklist. Che thông tin xác thực nếu xuất hiện trong ảnh chụp hoặc log, gồm cả giá trị cookie `gallery.sid`. [Checklist bằng chứng](evidence/README.md)
 
 ```sh
 npm run evidence:db
@@ -117,9 +121,9 @@ curl.exe -s -D - -o NUL "http://localhost:3000/media/photos/<id>/v1/960.webp"
 
 Để lấy bằng chứng restart, lưu `photoId` và URL media, dừng hẳn server rồi chạy lại với cùng DB và `UPLOAD_ROOT`. Mở lại gallery và gửi GET đến cùng URL media để ghi nhận `200` sau restart.
 
-### Bằng chứng 08 và 09 về kiểm tra request
+### Bằng chứng 08, 09 và 17 về kiểm tra request
 
-Chạy `npm run fixtures` và khởi động server với `FAULT_INJECT` để trống. Dùng cùng cấu hình DB cho server và terminal chạy lệnh sau. Script tự đăng ký một tài khoản `evidence-<ngẫu nhiên>` để gửi các request đã đăng nhập.
+Chạy `npm run fixtures` và khởi động server với `FAULT_INJECT` để trống. Dùng cùng cấu hình DB cho server và terminal chạy lệnh sau. Script tự đăng ký hai tài khoản `evidence-<ngẫu nhiên>` và gửi `Origin` cho các request thay đổi dữ liệu.
 
 ```sh
 npm run evidence:requests -- --base http://localhost:3000
@@ -127,11 +131,12 @@ npm run evidence:requests -- --base http://localhost:3000
 
 - `08a-invalid-files.json` và `08b-invalid-files.json` chứa JSON của hai request trộn file. Mỗi request lưu một ảnh hợp lệ. Dùng `photo.id` trong mỗi JSON để lấy metadata và file tương ứng bằng `npm run evidence:db -- --photo "<id>"`.
 - `09-request-limits.txt` ghi HTTP status, response body và số `Photo` trước và sau từng request giới hạn. Request sáu file hợp lệ phải trả `400 TOO_MANY_FILES`. Request chunked gửi một phần file với dữ liệu sinh theo stream vượt 55 MiB và phải trả `413 REQUEST_TOO_LARGE`. Lệnh dùng các fixture có sẵn và sinh phần body lớn trong bộ nhớ theo từng chunk.
+- `17-auth-access.txt` ghi khách upload nhận 401, mở trang Upload nhận 303, người khác xóa ảnh nhận 403, khách xem gallery và media nhận 200.
 
 ### Bằng chứng 10 về lỗi DB sau khi ghi file
 
 1. Trong `.env.test`, đặt `FAULT_INJECT=db-after-write` và kiểm tra DB cùng kho test đã tách riêng. Chọn `PORT` khác trong file này nếu đồng thời chạy server dev. Ở chế độ test, ứng dụng lấy `FAULT_INJECT` từ `.env.test`.
-2. Bật chế độ test trước khi chạy server. Upload một JPEG hoặc PNG hợp lệ có alt. Response HTTP `200` có kết quả file `ok: false` với mã `STORAGE_ERROR`.
+2. Bật chế độ test trước khi chạy server. Đăng ký hoặc đăng nhập trên server test, rồi upload một JPEG hoặc PNG hợp lệ có alt. Response HTTP `200` có kết quả file `ok: false` với mã `STORAGE_ERROR`.
 
    ```powershell
    $env:NODE_ENV = 'test'

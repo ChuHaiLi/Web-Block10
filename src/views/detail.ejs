@@ -1,5 +1,6 @@
 <article class="photo-detail">
     <h1><%= photo.title %></h1>
+    <p class="photo-author">Đăng bởi <%= photo.owner.username %></p>
     <% if (canManage) { %>
         <div class="photo-actions">
             <a href="/photos/<%= photo.id %>/edit">Chỉnh sửa</a>

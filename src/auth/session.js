@@ -32,11 +32,12 @@ function closeSession(req, res, cookieSecure)
     }));
 }
 
-async function establishSession(req, userId)
+async function establishSession(req, { id, passwordChangedAt })
 {
     await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
-    req.session.userId = userId;
-    req.session.createdAt = Date.now();
+    req.session.userId = id;
+    req.session.passwordChangedAt = passwordChangedAt.getTime();
+    req.session.createdAt = Math.max(Date.now(), req.session.passwordChangedAt);
     await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
 }
 
@@ -53,7 +54,10 @@ function loadUser(prisma, cookieSecure)
                 where: { id: req.session.userId },
                 select: { id: true, username: true, passwordChangedAt: true }
             });
-            if (!user || req.session.createdAt < user.passwordChangedAt.getTime())
+            const changedAt = user?.passwordChangedAt.getTime();
+            // A login verified against the previous password might save its session after revocation.
+            const sessionPassword = req.session.passwordChangedAt ?? changedAt;
+            if (!user || req.session.createdAt < changedAt || sessionPassword !== changedAt)
             {
                 await closeSession(req, res, cookieSecure);
                 return next();

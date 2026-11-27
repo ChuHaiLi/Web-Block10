@@ -4,7 +4,7 @@ Dùng cùng một lần chạy và cùng một `photoId` cho các mục 01–04.
 
 **photoId cho mục 01–04** ____________________
 
-- [ ] **01** `01-network-upload.png`. Tab Network cho thấy POST multipart, header `Content-Type` có boundary, payload và response theo từng file.
+- [ ] **01** `01-network-upload.png`. Upload sau khi đăng nhập. Tab Network cho thấy POST multipart, header `Content-Type` có boundary, cookie `gallery.sid` (che giá trị), payload và response theo từng file.
 - [ ] **02** `02-upload-response.json`. JSON của cùng request ở mục 01.
 - [ ] **03** `03-db.txt`. Output `npm run evidence:db` có `Photo`, `PhotoVariant`, storage key và danh sách file thật tương ứng.
 - [ ] **04** `04-media-get.png` và `04-media-get.txt`. Dòng GET media trong DevTools khi mở gallery và header dạng text. Ghi rõ `200`, `Content-Type` và `Cache-Control`. Dùng `curl.exe -s -D - -o NUL <url>` trên Windows hoặc `curl -s -D - -o /dev/null <url>` trên POSIX để lấy header từ GET.
@@ -18,3 +18,5 @@ Dùng cùng một lần chạy và cùng một `photoId` cho các mục 01–04.
 - [ ] **12** `12-delete.txt`. Ghi trạng thái DB trước và sau khi xóa, GET media mới trả `404` và chứng minh file đã được dọn khỏi kho.
 - [ ] **13** `13-env-example.txt`. Bản sao nội dung `.env.example` đã kiểm tra thông tin xác thực.
 - [ ] **14** `14-bonus-*` nếu làm bonus. Ghi bằng chứng trước và sau chỉnh sửa, URL đổi từ `v1` sang `v2` và response `409` khi lưu đồng thời. Với cleanup, ghi `purgedAt` của version quá hạn, số file `supersededVersionFilesRemoved` từ `npm run cleanup` và kết quả GET mới của version đã dọn (`404`) và version hiện tại (`200`).
+- [ ] **17** `17-auth-access.txt`. Cùng lệnh ở mục 08 tự đăng ký hai tài khoản tạm. Khách POST upload nhận 401, mở trang Upload nhận 303 về login, người khác POST xóa nhận 403, khách vẫn mở gallery và media được 200.
+- [ ] **18** `18-auth-ui.png`. Chụp gallery khi chưa đăng nhập (header ẩn Upload), trang chi tiết khi xem bằng chủ ảnh và người khác (có hoặc ẩn Chỉnh sửa/Xóa), cùng thông báo khóa tạm sau 5 lần đăng nhập sai.
