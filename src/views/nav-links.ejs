@@ -1,0 +1,5 @@
+<a href="/"<% if (page === 'gallery' && !myPhotos) { %> aria-current="page"<% } %>>Gallery</a>
+<% if (user) { %>
+    <a href="/upload"<% if (page === 'upload') { %> aria-current="page"<% } %>>Upload</a>
+    <a href="/me"<% if (page === 'gallery' && myPhotos) { %> aria-current="page"<% } %>>Ảnh của tôi</a>
+<% } %>

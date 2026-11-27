@@ -16,6 +16,11 @@ function createApp({ prisma, objectStore, scratch, sessionSecret, cookieSecure =
     app.set('views', path.join(__dirname, 'views'));
     app.use(originCheck);
     app.use(express.static(path.join(__dirname, 'public')));
+    for (const family of ['be-vietnam-pro', 'open-sans'])
+    {
+        const files = path.join(path.dirname(require.resolve('@fontsource/' + family + '/package.json')), 'files');
+        app.use('/fonts/' + family, express.static(files, { maxAge: '365d', immutable: true, index: false }));
+    }
     app.use('/media', createMediaRouter(prisma, objectStore), (req, res) =>
     {
         res.status(404).type('text').send('Không tìm thấy ảnh');

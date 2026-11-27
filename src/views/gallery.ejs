@@ -1,20 +1,35 @@
-<h1><%= title %></h1>
+<h1 class="section-title"><%= myPhotos ? 'Ảnh của tôi' : 'Ảnh mới nhất' %></h1>
 <% if (photos.length === 0) { %>
-    <p><%= myPhotos ? 'Bạn chưa đăng ảnh nào' : 'Chưa có ảnh.' %> <a href="/upload">Tải ảnh lên</a></p>
+    <section class="empty-state" aria-labelledby="empty-title">
+        <svg class="empty-icon" viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="8" y="12" width="48" height="40" rx="6"></rect>
+            <circle cx="22" cy="26" r="4"></circle>
+            <path d="M8 44l14-12 10 8 8-6 16 14"></path>
+        </svg>
+        <p id="empty-title" class="empty-title">Chưa có ảnh nào</p>
+        <% if (myPhotos) { %><p class="empty-note">Bạn chưa đăng ảnh nào.</p><% } %>
+        <% if (user) { %>
+            <a class="btn btn-primary" href="/upload">Tải ảnh lên</a>
+        <% } else { %>
+            <a class="btn btn-primary" href="/login?next=/upload">Đăng nhập để tải ảnh</a>
+        <% } %>
+    </section>
 <% } else { %>
     <ul class="photos">
         <% for (const photo of photos) { %>
             <li id="photo-<%= photo.id %>">
                 <a class="photo-card" href="/photos/<%= photo.id %>">
                     <figure>
-                        <%- include('photo-image', {
-                            photo,
-                            sizes: '(max-width: 599px) 100vw, (max-width: 999px) 50vw, 33vw',
-                            loading: 'lazy'
-                        }) %>
+                        <div class="photo-frame">
+                            <%- include('photo-image', {
+                                photo,
+                                sizes: '(max-width: 599px) 100vw, (max-width: 999px) 50vw, (max-width: 1279px) 33vw, 410px',
+                                loading: 'lazy'
+                            }) %>
+                        </div>
                         <figcaption>
-                            <%= photo.title %>
-                            <span class="photo-author">Đăng bởi <%= photo.owner.username %></span>
+                            <span class="photo-title"><%= photo.title %></span>
+                            <span class="photo-author">bởi <%= photo.owner.username %> · <time datetime="<%= photo.createdAt.toISOString() %>"><%= photo.createdAt.toLocaleDateString('vi-VN', { timeZone: 'UTC' }) %></time></span>
                         </figcaption>
                     </figure>
                 </a>

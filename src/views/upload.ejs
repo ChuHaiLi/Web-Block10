@@ -1,8 +1,14 @@
-<h1>Tải ảnh lên</h1>
+<h1 class="section-title">Tải ảnh lên</h1>
 <form id="upload-form" action="/api/uploads" method="post" enctype="multipart/form-data" class="upload-form">
-    <label for="photos">Chọn ảnh JPEG hoặc PNG</label>
-    <input id="photos" name="photos" type="file" accept="image/jpeg,image/png" aria-describedby="upload-hint" multiple required>
-    <small id="upload-hint">Tối đa 5 ảnh mỗi lần, 10 MiB mỗi ảnh.</small>
+    <div id="dropzone" class="dropzone">
+        <svg class="dropzone-icon" viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M24 32V10M14 20l10-10 10 10"></path>
+            <path d="M8 32v6a2 2 0 0 0 2 2h28a2 2 0 0 0 2-2v-6"></path>
+        </svg>
+        <label class="dropzone-label" for="photos">Kéo thả ảnh JPEG, PNG vào đây hoặc <span class="dropzone-browse">bấm để chọn ảnh</span></label>
+        <input id="photos" name="photos" type="file" accept="image/jpeg,image/png" aria-describedby="upload-hint" multiple required>
+        <small id="upload-hint">Tối đa 5 ảnh mỗi lần, 10 MiB mỗi ảnh.</small>
+    </div>
     <p id="upload-warning" role="status"></p>
     <div id="upload-files" class="upload-files"></div>
     <button type="submit">Tải lên</button>
@@ -15,7 +21,7 @@
     <fieldset class="upload-file">
         <legend></legend>
         <div class="upload-file-body">
-            <div>
+            <div class="upload-file-preview">
                 <img class="upload-thumbnail" alt="" width="80" height="80">
                 <small class="upload-size"></small>
             </div>

@@ -1133,7 +1133,8 @@ Nhóm muốn làm lại giao diện theo phong cách của [4kwallpapers.com](ht
 
 - **Tham khảo phong cách, không sao chép.** Học bố cục, bảng màu tối, kiểu thẻ ảnh, cách đặt khối tải xuống. **Không** dùng logo, tên "4K Wallpapers", hình ảnh, icon hay mã CSS/JS của trang đó. Tên và wordmark của app vẫn là "Photo Gallery".
 - Không thêm framework CSS, không thêm bước build. Chỉ sửa `styles.css`, các file EJS và một ít JS thuần.
-- Font tự host bằng gói npm `@fontsource/outfit` (tiêu đề) và `@fontsource/open-sans` (nội dung), phục vụ qua một route static `/fonts`. Không tải font từ Google Fonts, để trang không gửi request ra bên thứ ba.
+- Font tự host bằng gói npm `@fontsource/be-vietnam-pro` (tiêu đề) và `@fontsource/open-sans` (nội dung), phục vụ qua một route static `/fonts`. Không tải font từ Google Fonts, để trang không gửi request ra bên thứ ba.
+- **Mọi font phải có bộ ký tự tiếng Việt** (subset `vietnamese`) và phải khai báo `@font-face` cho subset đó. Ban đầu chọn Outfit giống trang tham khảo, nhưng Outfit chỉ có `latin`/`latin-ext`, thiếu vùng `U+1EA0–1EF9` (ả, ấ, ớ, ự…). Các chữ đó bị vẽ bằng font dự phòng nên mỗi tiêu đề tiếng Việt bị trộn hai font. **Be Vietnam Pro** (thiết kế riêng cho tiếng Việt, dáng hình học gần Outfit, giấy phép OFL) thay thế. Chỉ nạp weight 600 và 700 cho tiêu đề; 400 và 600 cho nội dung.
 - **Dark theme là mặc định duy nhất**. Đặt `color-scheme: dark` để thanh cuộn và ô nhập cũng tối. Không làm nút chuyển sáng/tối (ngoài phạm vi).
 
 ### 18.2 Bảng màu và thông số chung (CSS custom properties trong `:root`)
@@ -1145,15 +1146,16 @@ Nhóm muốn làm lại giao diện theo phong cách của [4kwallpapers.com](ht
 | `--surface-2` | `#40464e` | Nút phụ, ô nhập, hover |
 | `--border` | `#4a515a` | Viền mảnh |
 | `--text` | `#eef1f6` | Chữ chính |
-| `--muted` | `#a9b1bc` | Chữ phụ (ngày, "Đăng bởi") |
+| `--muted` | `#b0b8c3` | Chữ phụ (ngày, "Đăng bởi") |
 | `--accent` | `#9be22d` | Nút chính, vạch tiêu đề, tab đang chọn, viền focus |
 | `--accent-ink` | `#121608` | Chữ trên nền `--accent` |
-| `--danger` | `#ff6b6b` | Nút Xóa, thông báo lỗi |
+| `--danger` | `#ff9898` | Nút Xóa, thông báo lỗi |
 | `--radius` | `12px` | Bo góc thẻ và ảnh |
 | `--radius-sm` | `8px` | Bo góc nút, ô nhập |
-| `--font-heading` | `'Outfit', system-ui, sans-serif` | Tiêu đề, wordmark, nút |
+| `--font-heading` | `'Be Vietnam Pro', system-ui, sans-serif` | Tiêu đề, wordmark, nút |
 | `--font-body` | `'Open Sans', system-ui, sans-serif` | Nội dung |
 
+- `--muted` và `--danger` đã được chỉnh lúc review T20 (ban đầu `#a9b1bc` và `#ff6b6b` chỉ đạt 4,40:1 trên `--surface-2` và 4,13:1 trên `--surface`). Giá trị mới đạt ≥ 4,5:1 trên cả `--bg`, `--surface` và `--surface-2`.
 - Mọi cặp chữ/nền phải đạt **tương phản WCAG AA** (≥ 4,5:1 cho chữ thường). Kiểm tra cụ thể: `--text` trên `--bg`, `--muted` trên `--surface`, `--accent-ink` trên `--accent`, `--danger` trên `--surface`. Không đạt thì chỉnh giá trị, ghi giá trị cuối vào README.
 - Viền focus: `outline: 3px solid var(--accent); outline-offset: 2px` cho mọi phần tử bấm được.
 - `@media (prefers-reduced-motion: reduce)`: tắt mọi hiệu ứng chuyển động (phóng ảnh khi hover, chuyển tab).
@@ -1161,7 +1163,7 @@ Nhóm muốn làm lại giao diện theo phong cách của [4kwallpapers.com](ht
 ### 18.3 Header và khung trang
 
 - Header dính trên cùng (`position: sticky`), nền `--surface`, cao khoảng 64 px.
-- Trái: wordmark "**Photo** Gallery", chữ "Photo" màu `--accent`, font Outfit đậm. Bấm vào về `/`.
+- Trái: wordmark "**Photo** Gallery", chữ "Photo" màu `--accent`, font tiêu đề đậm (700). Bấm vào về `/`.
 - Giữa (từ 1000 px trở lên): nhóm link dạng "viên thuốc" (pill): Gallery · Upload · Ảnh của tôi. Link hiện tại có nền `--surface-2` và một vạch `--accent` bên trái, kèm `aria-current="page"`.
 - Phải: khi chưa đăng nhập là nút "Đăng nhập" (viền) và "Đăng ký" (nền `--accent`). Khi đã đăng nhập là tên người dùng, bấm vào mở menu (`<details>`) gồm Ảnh của tôi, Đổi mật khẩu, nút Đăng xuất.
 - Dưới 1000 px: các link giữa thu vào menu `<details>` "☰".
@@ -1170,7 +1172,7 @@ Nhóm muốn làm lại giao diện theo phong cách của [4kwallpapers.com](ht
 
 ### 18.4 Gallery và "Ảnh của tôi"
 
-- Tiêu đề mục ("Ảnh mới nhất", "Ảnh của tôi") font Outfit 24 px, có vạch `--accent` 4 px bên trái.
+- Tiêu đề mục ("Ảnh mới nhất", "Ảnh của tôi") font tiêu đề 24 px, có vạch `--accent` 4 px bên trái.
 - Lưới giữ nguyên **1 / 2 / 3 cột** với breakpoint **600 / 1000 px**, khoảng cách 20 px.
 - Thẻ ảnh: ảnh bo `--radius`, tỉ lệ **16:10**, `object-fit: cover`. Bên dưới là tiêu đề (1 dòng, cắt bằng `…`) và dòng phụ "bởi `<tên>` · `<ngày>`" màu `--muted`.
 - Hover/focus: thẻ nhích lên 2 px, ảnh phóng nhẹ `scale(1.03)` bên trong khung (khung có `overflow: hidden`). Tắt khi `prefers-reduced-motion`.

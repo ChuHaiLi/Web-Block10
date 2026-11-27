@@ -1,80 +1,94 @@
 <article class="photo-detail">
-    <h1><%= photo.title %></h1>
-    <p class="photo-author">Đăng bởi <%= photo.owner.username %></p>
-    <% if (canManage) { %>
-        <div class="photo-actions">
-            <a href="/photos/<%= photo.id %>/edit">Chỉnh sửa</a>
-            <form class="photo-delete" method="post" action="/photos/<%= photo.id %>/delete"
-                  onsubmit="return window.confirm('Xóa ảnh này?')">
-                <button type="submit">Xóa</button>
-            </form>
+    <div class="detail-layout">
+        <div class="detail-stage">
+            <%- include('photo-image', { photo, sizes: '(max-width: 999px) 100vw, (max-width: 1279px) calc(100vw - 412px), 916px', loading: 'eager' }) %>
         </div>
-    <% } %>
-    <div class="photo-download">
-        <a class="download-original" href="<%= download.baseUrl %>/original" download>⬇ Tải bản gốc (<%= download.width %>×<%= download.height %>)</a>
-    </div>
-    <%- include('photo-image', { photo, sizes: '(max-width: 1600px) 100vw, 1600px', loading: 'eager' }) %>
 
-    <% if (download.presetGroups.length > 0) { %>
-        <section class="download-presets" aria-labelledby="download-presets-heading">
-            <h2 id="download-presets-heading">Kích thước khác</h2>
-            <div class="preset-tabs" role="tablist" aria-label="Nhóm thiết bị" hidden>
-                <% download.presetGroups.forEach((group, index) => { %>
-                    <button type="button"
-                            role="tab"
-                            id="tab-<%= group.id %>"
-                            aria-controls="panel-<%= group.id %>"
-                            aria-selected="<%= index === 0 ? 'true' : 'false' %>"
-                            tabindex="<%= index === 0 ? '0' : '-1' %>"><%= group.label %></button>
-                <% }) %>
-            </div>
-            <% for (const group of download.presetGroups) { %>
-                <div class="preset-panel" id="panel-<%= group.id %>" role="tabpanel" aria-labelledby="tab-<%= group.id %>">
-                    <h3 class="preset-group-title"><%= group.label %></h3>
-                    <ul class="preset-list">
-                        <% for (const item of group.items) { %>
-                            <li>
-                                <a class="preset-link" href="<%= download.baseUrl %>/<%= item.width %>x<%= item.height %>" download>
-                                    <span class="preset-size"><%= item.width %>×<%= item.height %></span>
-                                    <% if (item.tag) { %><span class="preset-tag"><%= item.tag %></span><% } %>
-                                </a>
-                            </li>
-                        <% } %>
-                    </ul>
+        <aside class="detail-side" aria-label="Thông tin và tải ảnh">
+            <a class="download-original" href="<%= download.baseUrl %>/original" download>⬇ Tải bản gốc (<%= download.width %>×<%= download.height %>)</a>
+
+            <section class="info-card" aria-label="Thông tin">
+                <p class="info-card-label" aria-hidden="true">Thông tin</p>
+                <h1><%= photo.title %></h1>
+                <p class="photo-author">Đăng bởi <%= photo.owner.username %></p>
+                <dl class="photo-metadata">
+                    <dt>Mô tả ảnh</dt>
+                    <dd><%= photo.alt %></dd>
+                    <dt>Ngày tạo</dt>
+                    <dd>
+                        <time datetime="<%= photo.createdAt.toISOString() %>"><%= photo.createdAt.toLocaleDateString('vi-VN', { timeZone: 'UTC' }) %></time>
+                    </dd>
+                    <dt>Phiên bản</dt>
+                    <dd><%= photo.currentVersion %></dd>
+                </dl>
+            </section>
+
+            <% if (canManage) { %>
+                <div class="photo-actions">
+                    <a href="/photos/<%= photo.id %>/edit">Chỉnh sửa</a>
+                    <form class="photo-delete" method="post" action="/photos/<%= photo.id %>/delete"
+                          onsubmit="return window.confirm('Xóa ảnh này?')">
+                        <button type="submit">Xóa</button>
+                    </form>
                 </div>
             <% } %>
-        </section>
-    <% } %>
 
-    <dl class="photo-metadata">
-        <dt>Mô tả ảnh</dt>
-        <dd><%= photo.alt %></dd>
-        <dt>Ngày tạo</dt>
-        <dd>
-            <time datetime="<%= photo.createdAt.toISOString() %>"><%= photo.createdAt.toLocaleDateString('vi-VN', { timeZone: 'UTC' }) %></time>
-        </dd>
-        <dt>Phiên bản</dt>
-        <dd><%= photo.currentVersion %></dd>
-    </dl>
+            <details class="tech-details">
+                <summary>Thông tin kỹ thuật</summary>
+                <div class="table-scroll">
+                    <table class="variant-table">
+                        <caption>Các biến thể WebP</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Kích thước</th>
+                                <th scope="col">Dung lượng (byte)</th>
+                                <th scope="col">Tệp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% for (const variant of photo.variants) { %>
+                                <tr>
+                                    <td><%= variant.width %> × <%= variant.height %></td>
+                                    <td><%= variant.bytes %></td>
+                                    <td><a href="<%= variant.url %>"><%= variant.width %>.webp</a></td>
+                                </tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        </aside>
 
-    <table class="variant-table">
-        <caption>Các biến thể WebP</caption>
-        <thead>
-            <tr>
-                <th scope="col">Kích thước</th>
-                <th scope="col">Dung lượng (byte)</th>
-                <th scope="col">Tệp</th>
-            </tr>
-        </thead>
-        <tbody>
-            <% for (const variant of photo.variants) { %>
-                <tr>
-                    <td><%= variant.width %> × <%= variant.height %></td>
-                    <td><%= variant.bytes %></td>
-                    <td><a href="<%= variant.url %>"><%= variant.width %>.webp</a></td>
-                </tr>
-            <% } %>
-        </tbody>
-    </table>
+        <% if (download.presetGroups.length > 0) { %>
+            <section class="download-presets" aria-labelledby="download-presets-heading">
+                <h2 id="download-presets-heading">Kích thước khác</h2>
+                <div class="preset-tabs" role="tablist" aria-label="Nhóm thiết bị" hidden>
+                    <% download.presetGroups.forEach((group, index) => { %>
+                        <button type="button"
+                                role="tab"
+                                id="tab-<%= group.id %>"
+                                aria-controls="panel-<%= group.id %>"
+                                aria-selected="<%= index === 0 ? 'true' : 'false' %>"
+                                tabindex="<%= index === 0 ? '0' : '-1' %>"><%= group.label %></button>
+                    <% }) %>
+                </div>
+                <% for (const group of download.presetGroups) { %>
+                    <div class="preset-panel" id="panel-<%= group.id %>" role="tabpanel" aria-labelledby="tab-<%= group.id %>">
+                        <h3 class="preset-group-title"><%= group.label %></h3>
+                        <ul class="preset-list">
+                            <% for (const item of group.items) { %>
+                                <li>
+                                    <a class="preset-link" href="<%= download.baseUrl %>/<%= item.width %>x<%= item.height %>" download>
+                                        <span class="preset-size"><%= item.width %>×<%= item.height %></span>
+                                        <% if (item.tag) { %><span class="preset-tag"><%= item.tag %></span><% } %>
+                                    </a>
+                                </li>
+                            <% } %>
+                        </ul>
+                    </div>
+                <% } %>
+            </section>
+        <% } %>
+    </div>
 </article>
 <script src="/detail.js" defer></script>

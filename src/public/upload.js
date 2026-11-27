@@ -160,3 +160,44 @@ form.addEventListener('submit', async event =>
         for (const { row } of entries) row.disabled = false;
     }
 });
+
+const dropzone = document.querySelector('#dropzone');
+let dragDepth = 0;
+
+function hasFiles(event)
+{
+    return Array.from(event.dataTransfer?.types ?? []).includes('Files');
+}
+
+dropzone.addEventListener('dragenter', event =>
+{
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    dragDepth++;
+    dropzone.classList.add('is-dragover');
+});
+
+dropzone.addEventListener('dragover', event =>
+{
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = input.disabled ? 'none' : 'copy';
+});
+
+dropzone.addEventListener('dragleave', () =>
+{
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropzone.classList.remove('is-dragover');
+});
+
+dropzone.addEventListener('drop', event =>
+{
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    dragDepth = 0;
+    dropzone.classList.remove('is-dragover');
+    if (input.disabled || event.dataTransfer.files.length === 0) return;
+
+    input.files = event.dataTransfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+});

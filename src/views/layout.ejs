@@ -3,30 +3,45 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
     <title><%= title %> | Photo Gallery</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <header class="site-header">
-        <span class="site-name">Photo Gallery</span>
-        <nav aria-label="Điều hướng chính">
-            <a href="/"<% if (page === 'gallery' && !myPhotos) { %> aria-current="page"<% } %>>Gallery</a>
-            <% if (user) { %>
-                <a href="/upload"<% if (page === 'upload') { %> aria-current="page"<% } %>>Upload</a>
-                <a href="/me"<% if (page === 'gallery' && myPhotos) { %> aria-current="page"<% } %>>Ảnh của tôi</a>
-                <span class="site-user"><%= user.username %></span>
-                <a href="/account/password"<% if (page === 'password') { %> aria-current="page"<% } %>>Đổi mật khẩu</a>
-                <form method="post" action="/logout">
-                    <button type="submit">Đăng xuất</button>
-                </form>
-            <% } else { %>
-                <a href="/login"<% if (page === 'auth' && action === '/login') { %> aria-current="page"<% } %>>Đăng nhập</a>
-                <a href="/register"<% if (page === 'auth' && action === '/register') { %> aria-current="page"<% } %>>Đăng ký</a>
-            <% } %>
-        </nav>
+        <div class="header-inner">
+            <a class="site-name" href="/"><span class="site-name-accent">Photo</span> Gallery</a>
+            <nav class="site-nav" aria-label="Điều hướng chính">
+                <%- include('nav-links') %>
+            </nav>
+            <div class="header-end">
+                <% if (user) { %>
+                    <details class="header-menu nav-menu">
+                        <summary aria-label="Menu điều hướng"><span aria-hidden="true">☰</span></summary>
+                        <nav class="menu-panel" aria-label="Điều hướng chính (thu gọn)">
+                            <%- include('nav-links') %>
+                        </nav>
+                    </details>
+                    <details class="header-menu user-menu">
+                        <summary><span class="site-user"><%= user.username %></span></summary>
+                        <div class="menu-panel">
+                            <a href="/me">Ảnh của tôi</a>
+                            <a href="/account/password"<% if (page === 'password') { %> aria-current="page"<% } %>>Đổi mật khẩu</a>
+                            <form method="post" action="/logout">
+                                <button type="submit">Đăng xuất</button>
+                            </form>
+                        </div>
+                    </details>
+                <% } else { %>
+                    <a class="btn btn-outline" href="/login"<% if (page === 'auth' && action === '/login') { %> aria-current="page"<% } %>>Đăng nhập</a>
+                    <a class="btn btn-primary" href="/register"<% if (page === 'auth' && action === '/register') { %> aria-current="page"<% } %>>Đăng ký</a>
+                <% } %>
+            </div>
+        </div>
     </header>
     <main>
         <%- include(page) %>
     </main>
+    <script src="/menu.js" defer></script>
 </body>
 </html>

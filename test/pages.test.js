@@ -4,8 +4,8 @@ const { test } = require('node:test');
 const sharp = require('sharp');
 const { prepareTest, registerAndLogin } = require('./helpers');
 
-const gallerySizes = '(max-width: 599px) 100vw, (max-width: 999px) 50vw, 33vw';
-const detailSizes = '(max-width: 1600px) 100vw, 1600px';
+const gallerySizes = '(max-width: 599px) 100vw, (max-width: 999px) 50vw, (max-width: 1279px) 33vw, 410px';
+const detailSizes = '(max-width: 999px) 100vw, (max-width: 1279px) calc(100vw - 412px), 916px';
 
 function imageAttributes(html)
 {
@@ -30,10 +30,14 @@ function assertImage(image, { variants, coverWidth, sizes, loading, alt })
 
 test('pages gallery rỗng có link Upload và ảnh được sắp mới nhất trước', async t =>
 {
-    const { prisma, request, uploadFiles } = await prepareTest(t);
+    const { prisma, request, guest, uploadFiles } = await prepareTest(t);
     const empty = await request.get('/').expect(200);
-    assert.match(empty.text, /Chưa có ảnh\.[\s\S]*<a href="\/upload">Tải ảnh lên<\/a>/);
+    assert.match(empty.text, /<h1 class="section-title">Ảnh mới nhất<\/h1>/);
+    assert.match(empty.text, /class="empty-state"[\s\S]*Chưa có ảnh nào[\s\S]*<a class="btn btn-primary" href="\/upload">Tải ảnh lên<\/a>/);
     assert.deepEqual(imageAttributes(empty.text), []);
+    const guestEmpty = await guest.get('/').expect(200);
+    assert.match(guestEmpty.text, /Chưa có ảnh nào[\s\S]*<a class="btn btn-primary" href="\/login\?next=\/upload">Đăng nhập để tải ảnh<\/a>/);
+    assert.doesNotMatch(guestEmpty.text, /href="\/upload"/);
 
     const { body } = await uploadFiles([
         { filename: 'photo.jpg', title: 'Ảnh cũ', altText: 'Ảnh JPEG' },
@@ -55,7 +59,8 @@ test('pages gallery rỗng có link Upload và ảnh được sắp mới nhất
     assert.deepEqual(images[0].srcset.split(', ').map(candidate => candidate.split(' ').at(-1)), ['320w', '800w']);
     assertImage(images[0], { variants: png.variants, coverWidth: 800, sizes: gallerySizes, loading: 'lazy', alt: 'Ảnh &lt;PNG&gt; &amp; sân' });
     assertImage(images[1], { variants: jpeg.variants, coverWidth: 960, sizes: gallerySizes, loading: 'lazy', alt: 'Ảnh JPEG' });
-    assert.match(gallery.text, /<figcaption>\s*Ảnh mới\s*<span class="photo-author">Đăng bởi test-user<\/span>/);
+    assert.match(gallery.text, /<figcaption>\s*<span class="photo-title">Ảnh mới<\/span>\s*<span class="photo-author">bởi test-user · <time datetime="2026-02-01T00:00:00\.000Z">1\/2\/2026<\/time><\/span>/);
+    assert.match(gallery.text, /<div class="photo-frame">\s*<img class="photo-image"/);
 });
 
 test('pages chi tiết có ảnh eager, metadata, bảng variant và form xác nhận xóa', async t =>
@@ -104,8 +109,8 @@ test('pages ảnh của tôi chỉ có ảnh PUBLISHED của mình, mới nhất
     const guestGallery = await guest.get('/').expect(200);
     assert.doesNotMatch(guestGallery.text, /href="\/(?:me|account\/password)"/);
     const empty = await request.get('/me').expect('Cache-Control', 'private, no-store').expect(200);
-    assert.match(empty.text, /<h1>Ảnh của tôi<\/h1>/);
-    assert.match(empty.text, /Bạn chưa đăng ảnh nào <a href="\/upload">Tải ảnh lên<\/a>/);
+    assert.match(empty.text, /<h1 class="section-title">Ảnh của tôi<\/h1>/);
+    assert.match(empty.text, /Chưa có ảnh nào[\s\S]*Bạn chưa đăng ảnh nào\.[\s\S]*<a class="btn btn-primary" href="\/upload">Tải ảnh lên<\/a>/);
     assert.match(empty.text, /href="\/me" aria-current="page">Ảnh của tôi<\/a>/);
     assert.doesNotMatch(empty.text, /href="\/" aria-current/);
     assert.match(empty.text, /href="\/account\/password">Đổi mật khẩu<\/a>/);
@@ -138,7 +143,7 @@ test('pages ảnh của tôi chỉ có ảnh PUBLISHED của mình, mới nhất
     assert.deepEqual(cardUrls(myPhotos.text), [newer.url, older.url]);
     assert.deepEqual(cardUrls((await other.get('/me').expect(200)).text), [otherPhoto.url]);
     const gallery = await guest.get('/').expect(200);
-    assert.match(gallery.text, /Ảnh của người khác\s*<span class="photo-author">Đăng bởi other-owner<\/span>/);
+    assert.match(gallery.text, /Ảnh của người khác<\/span>\s*<span class="photo-author">bởi other-owner · /);
     const detail = await request.get(otherPhoto.url).expect(200);
     assert.match(detail.text, /Đăng bởi other-owner/);
     const publicImages = imageAttributes(gallery.text);
@@ -287,4 +292,92 @@ test('pages trang chi tiết hiển thị nút tải bản gốc cho khách, l�
     assert.ok(uhdDetail.text.includes('4K UHD'));
     assert.ok(!uhdDetail.text.includes('5120x2880'));
     assert.match(uhdDetail.text, /<script src="\/detail\.js" defer><\/script>/);
+});
+
+test('pages giao diện mới: font tự host, bảng màu :root và không gọi bên thứ ba', async t =>
+{
+    const { guest, request } = await prepareTest(t);
+    const css = (await guest.get('/styles.css').expect(200)).text;
+    const tokens = {
+        '--bg': '#2b2f35', '--surface': '#353a41', '--surface-2': '#40464e', '--border': '#4a515a',
+        '--text': '#eef1f6', '--muted': '#b0b8c3', '--accent': '#9be22d', '--accent-ink': '#121608',
+        '--danger': '#ff9898', '--radius': '12px', '--radius-sm': '8px',
+        '--font-heading': "'Be Vietnam Pro', system-ui, sans-serif", '--font-body': "'Open Sans', system-ui, sans-serif"
+    };
+    const root = css.match(/:root\s*\{([^}]*)\}/)[1];
+    for (const [name, value] of Object.entries(tokens)) assert.ok(root.includes(name + ': ' + value + ';'), name);
+    assert.match(root, /color-scheme: dark;/);
+    assert.match(css, /:focus-visible\s*\{\s*outline: 3px solid var\(--accent\);\s*outline-offset: 2px;/);
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+    assert.doesNotMatch(css, /googleapis|gstatic|https?:\/\//);
+
+    for (const [family, weights] of [['be-vietnam-pro', [600, 700]], ['open-sans', [400, 600]]])
+    {
+        for (const weight of weights)
+        {
+            for (const subset of ['vietnamese', 'latin-ext', 'latin'])
+            {
+                assert.ok(css.includes(`/fonts/${family}/${family}-${subset}-${weight}-normal.woff2`), `${family} ${weight} ${subset}`);
+            }
+        }
+    }
+    assert.match(css, /font-family: 'Be Vietnam Pro';[^}]*unicode-range: [^;]*U\+1EA0-1EF9/);
+
+    const fontUrls = Array.from(css.matchAll(/url\('(\/fonts\/[^']+)'\)/g), ([, url]) => url);
+    assert.ok(fontUrls.length > 0);
+    for (const url of fontUrls)
+    {
+        const font = await guest.get(url).expect(200).expect('Content-Type', /font\/woff2/);
+        assert.ok(font.body.length > 1000, url);
+    }
+    await guest.get('/fonts/be-vietnam-pro/khong-ton-tai.woff2').expect(404);
+
+    const page = (await request.get('/').expect(200)).text;
+    assert.doesNotMatch(page, /fonts\.googleapis|fonts\.gstatic|https?:\/\//);
+});
+
+test('pages header: khách có nút Đăng nhập/Đăng ký, người dùng có menu tài khoản và link hiện tại', async t =>
+{
+    const { guest, request } = await prepareTest(t);
+    const visitor = (await guest.get('/').expect(200)).text;
+    assert.match(visitor, /<a class="site-name" href="\/"><span class="site-name-accent">Photo<\/span> Gallery<\/a>/);
+    assert.match(visitor, /<a class="btn btn-outline" href="\/login">Đăng nhập<\/a>/);
+    assert.match(visitor, /<a class="btn btn-primary" href="\/register">Đăng ký<\/a>/);
+    assert.match(visitor, /href="\/" aria-current="page">Gallery<\/a>/);
+    assert.doesNotMatch(visitor, /<details/);
+
+    const member = (await request.get('/upload').expect(200)).text;
+    assert.match(member, /href="\/upload" aria-current="page">Upload<\/a>/);
+    assert.match(member, /<details class="header-menu nav-menu">/);
+    const userMenu = member.match(/<details class="header-menu user-menu">([\s\S]*?)<\/details>/)[1];
+    assert.match(userMenu, /test-user/);
+    assert.match(userMenu, /href="\/me">Ảnh của tôi<\/a>/);
+    assert.match(userMenu, /href="\/account\/password">Đổi mật khẩu<\/a>/);
+    assert.match(userMenu, /action="\/logout"/);
+    assert.match(member, /id="dropzone"/);
+    assert.match(member, /<input id="photos" name="photos" type="file"/);
+
+    const login = (await guest.get('/login').expect(200)).text;
+    assert.match(login, /class="btn btn-outline" href="\/login" aria-current="page">Đăng nhập<\/a>/);
+    assert.match(login, /<section class="card auth-card">/);
+});
+
+test('pages trang chi tiết hai cột: nút tải, thông tin, nút chủ ảnh và bảng kỹ thuật trong details', async t =>
+{
+    const { guest, request, uploadFiles } = await prepareTest(t);
+    const { body } = await uploadFiles([{ filename: 'photo.jpg', title: 'Ảnh hai cột', altText: 'Mô tả' }]).expect(200);
+    const { url } = body.results[0].photo;
+
+    const html = (await request.get(url).expect(200)).text;
+    const order = [
+        'class="detail-stage"', 'class="download-original"', 'class="info-card"',
+        'class="photo-actions"', 'class="tech-details"', 'class="download-presets"'
+    ].map(marker => html.indexOf(marker));
+    assert.ok(order.every(index => index > 0), 'thiếu khối: ' + order);
+    assert.deepEqual(order, [...order].sort((a, b) => a - b));
+    assert.match(html, /<details class="tech-details">\s*<summary>Thông tin kỹ thuật<\/summary>[\s\S]*<table class="variant-table">[\s\S]*<\/details>/);
+
+    const visitor = (await guest.get(url).expect(200)).text;
+    assert.ok(!visitor.includes('class="photo-actions"'));
+    assert.ok(visitor.includes('class="download-original"'));
 });
