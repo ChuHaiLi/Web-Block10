@@ -10,7 +10,41 @@
             </form>
         </div>
     <% } %>
+    <div class="photo-download">
+        <a class="download-original" href="<%= download.baseUrl %>/original" download>⬇ Tải bản gốc (<%= download.width %>×<%= download.height %>)</a>
+    </div>
     <%- include('photo-image', { photo, sizes: '(max-width: 1600px) 100vw, 1600px', loading: 'eager' }) %>
+
+    <% if (download.presetGroups.length > 0) { %>
+        <section class="download-presets" aria-labelledby="download-presets-heading">
+            <h2 id="download-presets-heading">Kích thước khác</h2>
+            <div class="preset-tabs" role="tablist" aria-label="Nhóm thiết bị" hidden>
+                <% download.presetGroups.forEach((group, index) => { %>
+                    <button type="button"
+                            role="tab"
+                            id="tab-<%= group.id %>"
+                            aria-controls="panel-<%= group.id %>"
+                            aria-selected="<%= index === 0 ? 'true' : 'false' %>"
+                            tabindex="<%= index === 0 ? '0' : '-1' %>"><%= group.label %></button>
+                <% }) %>
+            </div>
+            <% for (const group of download.presetGroups) { %>
+                <div class="preset-panel" id="panel-<%= group.id %>" role="tabpanel" aria-labelledby="tab-<%= group.id %>">
+                    <h3 class="preset-group-title"><%= group.label %></h3>
+                    <ul class="preset-list">
+                        <% for (const item of group.items) { %>
+                            <li>
+                                <a class="preset-link" href="<%= download.baseUrl %>/<%= item.width %>x<%= item.height %>" download>
+                                    <span class="preset-size"><%= item.width %>×<%= item.height %></span>
+                                    <% if (item.tag) { %><span class="preset-tag"><%= item.tag %></span><% } %>
+                                </a>
+                            </li>
+                        <% } %>
+                    </ul>
+                </div>
+            <% } %>
+        </section>
+    <% } %>
 
     <dl class="photo-metadata">
         <dt>Mô tả ảnh</dt>
@@ -43,3 +77,4 @@
         </tbody>
     </table>
 </article>
+<script src="/detail.js" defer></script>

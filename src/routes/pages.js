@@ -3,6 +3,7 @@ const sharp = require('sharp');
 const { MAX_PIXELS } = require('../upload/validateImage');
 const { purgePhoto } = require('../cleanup/purgePhoto');
 const { redirectToLogin, isPhotoOwner, requirePhotoOwner } = require('../auth/access');
+const { getAvailablePresetGroups } = require('../download/presets');
 
 const displayedVariants = {
     where: { photoVersion: { purgedAt: null } },
@@ -58,7 +59,20 @@ function createPagesRouter(prisma, objectStore)
             const photo = record && presentPhoto(record);
             if (!photo) return next();
 
-            res.render('layout', { title: photo.title, page: 'detail', photo, canManage: isPhotoOwner(req.user, photo) });
+            const currentVersion = await prisma.photoVersion.findUnique({
+                where: { photoId_version: { photoId: photo.id, version: photo.currentVersion } },
+                select: { width: true, height: true }
+            });
+            const width = currentVersion?.width ?? photo.originalWidth;
+            const height = currentVersion?.height ?? photo.originalHeight;
+            const download = {
+                width,
+                height,
+                baseUrl: '/photos/' + photo.id + '/v/' + photo.currentVersion + '/download',
+                presetGroups: getAvailablePresetGroups(width, height)
+            };
+
+            res.render('layout', { title: photo.title, page: 'detail', photo, download, canManage: isPhotoOwner(req.user, photo) });
         }
         catch (error)
         {

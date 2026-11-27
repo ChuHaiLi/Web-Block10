@@ -233,3 +233,58 @@ test('pages dùng variant của currentVersion và fallback về variant nhỏ n
     assert.match(detail.text, /<dt>Phiên bản<\/dt>\s*<dd>2<\/dd>/);
     assert.ok(!detail.text.includes('/v1/'));
 });
+
+test('pages trang chi tiết hiển thị nút tải bản gốc cho khách, lọc kích thước và ẩn nhóm rỗng', async t =>
+{
+    const { guest, request, uploadFiles } = await prepareTest(t);
+
+    // 200x150: guest sees original download button, and "Kích thước khác" is completely hidden.
+    const { body: smallUpload } = await uploadFiles([{ filename: 'small.png', title: 'Ảnh nhỏ' }]).expect(200);
+    const smallId = smallUpload.results[0].photo.id;
+    const smallDetail = await guest.get(`/photos/${smallId}`).expect(200);
+    assert.ok(smallDetail.text.includes(`href="/photos/${smallId}/v/1/download/original" download>⬇ Tải bản gốc (200×150)</a>`));
+    assert.ok(!smallDetail.text.includes('Kích thước khác'));
+
+    // 2000x1333: only Desktop group is shown; Điện thoại and Tablet / iPad are hidden.
+    const { body: jpgUpload } = await uploadFiles([{ filename: 'photo.jpg', title: 'Ảnh 2000px' }]).expect(200);
+    const jpgId = jpgUpload.results[0].photo.id;
+    const jpgDetail = await guest.get(`/photos/${jpgId}`).expect(200);
+    assert.ok(jpgDetail.text.includes(`href="/photos/${jpgId}/v/1/download/original" download>⬇ Tải bản gốc (2000×1333)</a>`));
+    assert.ok(jpgDetail.text.includes('Kích thước khác'));
+    assert.ok(jpgDetail.text.includes('id="tab-desktop"'));
+    assert.ok(!jpgDetail.text.includes('id="tab-phone"'));
+    assert.ok(!jpgDetail.text.includes('id="tab-tablet"'));
+    assert.ok(jpgDetail.text.includes(`/photos/${jpgId}/v/1/download/1366x768`));
+    assert.ok(jpgDetail.text.includes(`/photos/${jpgId}/v/1/download/1920x1080`));
+    assert.ok(jpgDetail.text.includes('Full HD'));
+    assert.ok(!jpgDetail.text.includes('2560x1440'));
+
+    // After crop edit to 1500x900 (v2), links use /v/2/download/... and 1920x1080 is no longer listed.
+    await request.post(`/api/photos/${jpgId}/edits`)
+        .send({ baseVersion: 1, rotate: 0, flipH: false, crop: { x: 0, y: 0, width: 1500, height: 900 } })
+        .expect(200);
+    const v2Detail = await guest.get(`/photos/${jpgId}`).expect(200);
+    assert.ok(v2Detail.text.includes(`href="/photos/${jpgId}/v/2/download/original" download>⬇ Tải bản gốc (1500×900)</a>`));
+    assert.ok(v2Detail.text.includes(`/photos/${jpgId}/v/2/download/1366x768`));
+    assert.ok(!v2Detail.text.includes('1920x1080'));
+    assert.ok(!v2Detail.text.includes('/v/1/download/'));
+
+    // 3840x2160: all three groups (Desktop, Điện thoại, Tablet / iPad) are shown with tabs and labels.
+    const uhdBuffer = await sharp({
+        create: { width: 3840, height: 2160, channels: 3, background: '#1e3a5f' }
+    }).png().toBuffer();
+    const { body: uhdUpload } = await request.post('/api/uploads')
+        .field('title_0', 'Ảnh 4K')
+        .field('alt_0', 'Ảnh 4K trang chi tiết')
+        .attach('photos', uhdBuffer, 'uhd.png')
+        .expect(200);
+    const uhdId = uhdUpload.results[0].photo.id;
+    const uhdDetail = await guest.get(`/photos/${uhdId}`).expect(200);
+    assert.ok(uhdDetail.text.includes('id="tab-desktop"'));
+    assert.ok(uhdDetail.text.includes('aria-selected="true"'));
+    assert.ok(uhdDetail.text.includes('id="tab-phone"'));
+    assert.ok(uhdDetail.text.includes('id="tab-tablet"'));
+    assert.ok(uhdDetail.text.includes('4K UHD'));
+    assert.ok(!uhdDetail.text.includes('5120x2880'));
+    assert.match(uhdDetail.text, /<script src="\/detail\.js" defer><\/script>/);
+});
