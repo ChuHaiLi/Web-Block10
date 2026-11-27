@@ -140,6 +140,7 @@ Deck có ghi chú của giảng viên (speaker notes, mở bằng presenter view
 ## 8. Ghi chú / điểm cần chốt
 - Deck không chỉ định tech stack. Cần thư viện ảnh hỗ trợ xoay theo EXIF, bỏ EXIF, xuất WebP (vd sharp, Pillow).
 - ~~Object storage (SeaweedFS, MinIO, S3-compatible) chỉ là tùy chọn; bài cốt lõi dùng ổ đĩa local.~~
+- **Yêu cầu thêm của nhóm (đăng nhập):** chỉ người đã đăng nhập mới được upload ảnh; người chưa đăng nhập hay đã đăng nhập đều xem ảnh bình thường; chỉ người đăng ảnh được sửa và xóa ảnh đó. Thiết kế ở SPEC.md §16. Lưu ý speaker note slide 32: bài cốt lõi gốc "không có tài khoản", nên đây là phần mở rộng của nhóm, phải ghi rõ trong README.
 - **Cập nhật theo giảng viên:** Photo Gallery có nhiều người đăng ảnh, nên phải dùng object storage thay cho local filesystem. Nhóm chọn SeaweedFS (S3 API). Thiết kế ở SPEC.md §15. Speaker note slide 37: nhóm dùng SeaweedFS nộp thêm ảnh hoặc log liệt kê object trong bucket.
 - Chọn "xóa hẳn metadata" hay "đánh dấu đã dọn" và ghi rõ trong README.
 - Cần fixture/script sinh bộ ảnh kiểm thử (file giả, thiếu bytes, vượt pixel, EXIF GPS).

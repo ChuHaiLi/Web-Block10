@@ -3,6 +3,7 @@
 Tài liệu thiết kế để triển khai. Yêu cầu gốc và bảng nghiệm thu: [REQUIREMENTS.md](REQUIREMENTS.md).
 Thứ tự làm: **phần cốt lõi (T0–T6) trước, bonus (T7–T9) sau.** Không bắt đầu task sau khi test của task trước chưa qua.
 **Cập nhật:** theo yêu cầu của giảng viên, ảnh chuyển sang object storage (SeaweedFS, S3 API). Xem **§15**. Mục đó thay thế các chỗ nói "local filesystem" ở §4, §7, §9.2 bước 5, §12, §13, và thêm task T12–T14.
+**Cập nhật:** nhóm thêm đăng nhập, chỉ người đăng nhập mới được upload, chỉ chủ ảnh được sửa/xóa. Xem **§16**, task T15–T17. **Thứ tự làm: T13 → T15 → T16 → T17 → T14.** Chụp toàn bộ bằng chứng một lượt sau T14.
 
 ---
 
@@ -16,13 +17,14 @@ Thứ tự làm: **phần cốt lõi (T0–T6) trước, bonus (T7–T9) sau.** 
 | Ảnh | `sharp` (≥ 0.33) | Xoay theo EXIF, bỏ metadata, PNG/WebP, `limitInputPixels`, `failOn` | Một thư viện làm đủ các bước đề yêu cầu: đọc kích thước từ header trước khi giải mã, giới hạn số pixel, báo lỗi ảnh thiếu bytes, xoay pixel theo EXIF rồi bỏ toàn bộ EXIF (gồm GPS), xuất WebP. Dùng libvips nên nhanh và tốn ít RAM. |
 | DB | PostgreSQL + Prisma 5 | `prisma migrate dev` | Đã có sẵn cài đặt và kinh nghiệm từ các block trước. Transaction của PostgreSQL cùng câu `UPDATE` có điều kiện đủ để xử lý hai lần lưu chỉnh sửa đồng thời. Prisma cho schema rõ ràng và migration lặp lại được trên DB dev lẫn DB test. |
 | Object storage | SeaweedFS (S3 API) qua `@aws-sdk/client-s3`, chạy bằng Docker | Xem §15. Ảnh và PNG gốc nằm trong bucket; file tạm và hàng đợi dọn vẫn ở đĩa local | Giảng viên yêu cầu: nhiều người đăng ảnh thì phải chạy nhiều web server, mà ổ đĩa riêng của một máy thì máy khác không đọc được (slide 19). SeaweedFS là lựa chọn slide 21 đề xuất, miễn phí, chạy bằng Docker, không cần tài khoản. Code chỉ dùng S3 API nên đổi sang Cloudflare R2 chỉ cần sửa `.env`. Không chọn MinIO vì từ 10/2025 bản community không còn Docker image chính thức. |
+| Đăng nhập | `express-session` + session store Prisma, `argon2` | Xem §16. Session lưu trong bảng `Session` của PostgreSQL; cookie `HttpOnly`, `SameSite=Lax`; kiểm tra `Origin` cho request thay đổi dữ liệu | Nhóm yêu cầu chỉ người đăng nhập mới được upload. Cách làm giống Block9_SSR nên đã quen. Session nằm trong DB nên nhiều web server dùng chung được, khớp với lý do chuyển sang object storage. argon2id là thuật toán băm mật khẩu được khuyến nghị. |
 | Config | `dotenv` | | Tách cấu hình (DB, thư mục lưu ảnh) khỏi code và khỏi git. Dùng hai file `.env` và `.env.test` để dev và test không dùng chung DB hay thư mục ảnh. Có `.env.example` làm cấu hình mẫu để nộp. |
 | Test | `node:test` + `supertest` | DB test riêng, `UPLOAD_ROOT` tạm riêng cho mỗi lần chạy | `node:test` có sẵn trong Node, không thêm phụ thuộc. `supertest` gửi request thật vào app mà không cần mở cổng, phù hợp với yêu cầu nghiệm thu qua request thật và trạng thái lưu. |
 | Frontend | EJS + CSS + JS thuần | Form upload gửi `fetch` + `FormData`; trang edit dùng `<canvas>` | Giao diện ít màn hình nên không cần framework. `fetch` + `FormData` là đúng cách slide 8 hướng dẫn và cho hiển thị kết quả theo từng file. `<canvas>` đủ để xem trước xoay, lật, crop với cùng thứ tự như server. |
 
 ID ngẫu nhiên: `crypto.randomBytes(9).toString('base64url')` → 12 ký tự `[A-Za-z0-9_-]`. Không cần thêm thư viện.
 
-Ngoài phạm vi: đăng nhập và phân quyền (ai cũng upload/xóa/sửa được), CSRF, CDN, presigned URL. README phải ghi rõ các điểm này. (Object storage **đã nằm trong phạm vi**, xem §15.)
+Ngoài phạm vi: CDN, presigned URL, quên mật khẩu, xác minh email, đăng nhập bằng bên thứ ba, admin. README phải ghi rõ các điểm này. (Object storage **đã nằm trong phạm vi**, xem §15. Đăng nhập, phân quyền và chống CSRF **đã nằm trong phạm vi**, xem §16.)
 
 ---
 
@@ -623,7 +625,10 @@ Mỗi task: code → test của task đó qua → chạy lại toàn bộ `npm t
 | T11 | UI polish: gallery ô 4:3, thanh hành động ở trang chi tiết, header có `aria-current` | `npm test` qua; thuộc tính `<img>`, `sizes`, breakpoint không đổi |
 | T12 | Tách storage (§15.3–15.5): interface `ObjectStore` + driver `local`, kho nháp riêng, sửa mọi nơi gọi, helper test không phụ thuộc driver | Toàn bộ test qua với `STORAGE_DRIVER=local`; hành vi không đổi; `storage.contract` qua với driver `local` |
 | T13 | Driver `s3` + SeaweedFS (§15.4, 15.6–15.8): `docker-compose.yml`, cấu hình, bucket riêng cho mỗi test, test contract và test S3 ngừng hoạt động | `npm run storage:up` rồi `npm test` qua toàn bộ với `STORAGE_DRIVER=s3`; ảnh upload thấy được trong filer UI của SeaweedFS |
-| T14 | Bằng chứng và tài liệu (§15.9–15.11): `evidence:db` liệt kê object, README, `.env.example`, checklist mục 15–16, kiểm tra hai web server | Hai server cùng DB và bucket thấy ảnh của nhau; README đủ để dựng từ đầu |
+| T14 | Bằng chứng và tài liệu (§15.9–15.11): `evidence:db` liệt kê object, README, `.env.example`, checklist mục 15–16, kiểm tra hai web server | Hai server cùng DB và bucket thấy ảnh của nhau; README đủ để dựng từ đầu. **Làm sau T15–T17** (nhóm ưu tiên đăng nhập trước), để kiểm tra hai server có cả session dùng chung (§16.12 mục 16). **Chưa chụp bằng chứng**, đợi xong T14 rồi chụp một lượt. |
+| T15 | Đăng nhập nền tảng (§16.2–16.5): bảng `User`, `Session`, cột `Photo.ownerId`, session store Prisma, kiểm tra Origin, đăng ký, đăng nhập, đăng xuất, header theo trạng thái đăng nhập | Test `auth.register`, `auth.login`, `auth.session`, `auth.origin`, `auth.redirect` qua |
+| T16 | Phân quyền (§16.6): upload cần đăng nhập, chỉ chủ ảnh được sửa/xóa, ẩn nút với người khác, `savePhoto` ghi `ownerId`; cập nhật test cũ để đăng nhập trước | Test `auth.access` qua; toàn bộ test cũ qua sau khi thêm bước đăng nhập |
+| T17 | Phần thêm (§16.7–16.9): tên người đăng, trang "Ảnh của tôi", khóa tạm khi đoán mật khẩu, đổi mật khẩu; `evidence:requests` tự đăng ký tài khoản; README, checklist mục 17–18 | Test `auth.lockout`, `auth.password`, `pages` (bổ sung) qua; (chưa chụp bằng chứng, chuyển sang T14) |
 
 ---
 
@@ -815,3 +820,178 @@ README:
 - Mục "Kho ảnh": hai loại kho, driver, lý do phục vụ ảnh qua web server, ý nghĩa mới của các bộ đếm cleanup.
 - Bỏ "object storage" khỏi mục "Ngoài phạm vi".
 - **Dùng Cloudflare R2 thay SeaweedFS** (tùy chọn, không cần sửa code): tạo bucket và API token trong dashboard, đặt `S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com`, `S3_REGION=auto`, cùng key của token. Ghi rõ: không commit key thật, và R2 có hạn mức miễn phí (10 GB/tháng) nên không chạy bộ test trên R2.
+
+---
+
+## 16. Đăng nhập và phân quyền
+
+Yêu cầu thêm của nhóm: **chỉ người đã đăng nhập mới được upload ảnh**. Người chưa đăng nhập và người đã đăng nhập đều xem gallery, trang chi tiết và ảnh như bình thường. Mục này thay thế dòng "đăng nhập và phân quyền nằm ngoài phạm vi" ở §1.
+
+### 16.1 Quyết định đã chốt
+
+| Câu hỏi | Chốt |
+|---|---|
+| Tạo tài khoản | **Tự đăng ký** ở `/register` |
+| Đăng nhập bằng | **Tên đăng nhập + mật khẩu**. Có thể đổi sang email sau (§16.10) |
+| Ai được sửa và xóa ảnh | **Chỉ người đã đăng ảnh đó** (chủ ảnh). Không có vai trò admin |
+| Phần thêm | Hiện tên người đăng, trang "Ảnh của tôi", khóa tạm khi đoán mật khẩu, đổi mật khẩu |
+| Ngoài phạm vi | Quên mật khẩu, xác minh email, đăng nhập bằng Google/Facebook, 2FA, admin, xóa tài khoản |
+
+### 16.2 Stack và lý do
+
+| Phần | Chọn | Lý do |
+|---|---|---|
+| Băm mật khẩu | `argon2` (argon2id, tham số mặc định của thư viện) | Đã dùng ở Block9. argon2id là thuật toán được khuyến nghị cho mật khẩu, chậm có chủ đích nên khó dò |
+| Session | `express-session` + **session store tự viết bằng Prisma**, bảng `Session` trong PostgreSQL | Giống `PrismaSessionStore` ở Block9_SSR. Session nằm trong DB nên **mọi web server dùng chung** (§15.9): đăng nhập ở server 3000 thì sang 3001 vẫn đang đăng nhập. Store trong bộ nhớ (mặc định) sẽ hỏng khi chạy nhiều server |
+| Chống CSRF | Cookie `SameSite=Lax` + **kiểm tra header `Origin`** cho mọi request thay đổi dữ liệu | Có đăng nhập bằng cookie thì CSRF không còn ngoài phạm vi. Hai lớp này đủ cho app SSR không có API cho bên thứ ba, không cần token CSRF trong từng form |
+
+Không dùng Passport hay JWT: một form đăng nhập với session cookie là đủ, ít phụ thuộc hơn.
+
+### 16.3 Schema (thêm vào §5)
+
+```prisma
+model User {
+  id                String    @id                       // 12 ký tự ngẫu nhiên, như Photo.id
+  username          String    @unique @db.VarChar(30)   // đã chuẩn hóa chữ thường
+  passwordHash      String
+  failedLoginCount  Int       @default(0)
+  lockedUntil       DateTime?
+  passwordChangedAt DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  photos            Photo[]
+  sessions          Session[]
+}
+
+model Session {
+  sid       String   @id
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Photo: thêm
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+  @@index([ownerId, status, createdAt])
+```
+
+- `Photo.ownerId` **bắt buộc**. Dữ liệu dev hiện tại đằng nào cũng bị xóa theo §15.10, nên migration không cần xử lý ảnh cũ không có chủ. README ghi: sau khi kéo code mới thì chạy `npx prisma migrate reset` cho DB dev.
+- Cleanup (§9.2) xóa thêm các dòng `Session` đã hết hạn (`expiresAt < now`).
+
+### 16.4 Session và cookie
+
+- `express-session`: `name: 'gallery.sid'`, `secret: SESSION_SECRET`, `resave: false`, `saveUninitialized: false` (khách chưa đăng nhập **không** tạo session nào), `rolling: true`.
+- Cookie: `httpOnly: true`, `sameSite: 'lax'`, `secure` theo `COOKIE_SECURE` (`true` khi chạy HTTPS), `maxAge` 7 ngày, gia hạn mỗi lần có request.
+- **Không gắn session middleware cho `/media/*` và file tĩnh.** Nếu gắn, mỗi ảnh trong gallery sẽ tốn một lần đọc bảng `Session`. Ảnh là công khai nên không cần biết ai đang xem.
+- Đăng nhập thành công → `req.session.regenerate()` (đổi session ID, chống session fixation), rồi lưu `userId`. Đăng xuất → `req.session.destroy()` và xóa cookie.
+- Mỗi request đã có session: middleware tải `User` theo `userId`. User không còn, hoặc session được tạo trước `passwordChangedAt` → hủy session, coi như chưa đăng nhập. Gắn `req.user = { id, username }` và `res.locals.user` cho EJS.
+- Store (`src/auth/sessionStore.js`) theo mẫu Block9_SSR nhưng gọn hơn: `get` (bỏ qua dòng hết hạn), `set` (upsert kèm `userId`, `expiresAt`), `destroy`, `touch`. Không cần các chính sách phức tạp của Block9.
+- **HTML có hiển thị theo người dùng** (header có tên người dùng, nút Sửa/Xóa), nên mọi trang HTML trả `Cache-Control: private, no-store`. Media giữ nguyên `public, max-age=31536000, immutable`, vì ảnh giống nhau với mọi người xem.
+- Cấu hình mới trong `.env.example`:
+
+```
+SESSION_SECRET=replace-with-at-least-32-random-characters
+COOKIE_SECURE=false
+```
+
+`loadConfig` báo lỗi nếu `SESSION_SECRET` thiếu, ngắn hơn 32 ký tự, hoặc vẫn là giá trị mẫu. Ở chế độ test, `.env.test` có secret riêng.
+
+### 16.5 Đăng ký, đăng nhập, đăng xuất
+
+| Route | Hành vi |
+|---|---|
+| `GET /register`, `POST /register` | Form: tên đăng nhập, mật khẩu, nhập lại mật khẩu. Thành công → đăng nhập luôn → chuyển tới `next` hoặc `/` |
+| `GET /login`, `POST /login` | Form: tên đăng nhập, mật khẩu. Thành công → chuyển tới `next` hoặc `/` |
+| `POST /logout` | Hủy session → chuyển về `/`. **Chỉ POST** (nút trong form), không dùng link GET, để trang khác không thể đăng xuất bạn bằng một thẻ `<img>` |
+
+Quy tắc:
+- **Tên đăng nhập**: `trim()` rồi chuyển chữ thường. Dài 3–30 ký tự, chỉ gồm `a-z 0-9 _ . -`, bắt đầu bằng chữ hoặc số. Trùng → "Tên đăng nhập đã được dùng".
+- **Mật khẩu**: 8–128 ký tự, không trùng tên đăng nhập, hai ô nhập phải giống nhau. Không đặt luật "phải có chữ hoa, ký tự đặc biệt", vì độ dài quan trọng hơn.
+- **Đăng nhập sai**: luôn báo chung "Tên đăng nhập hoặc mật khẩu không đúng", không cho biết sai ở tên hay ở mật khẩu. Khi tên không tồn tại, vẫn chạy `argon2.verify` với một hash giả, để thời gian phản hồi không lộ tên nào có thật.
+- **Tham số `next`**: chỉ nhận đường dẫn tương đối bắt đầu bằng một dấu `/` (không nhận `//`, `/\`, hay URL đầy đủ). Sai → bỏ qua và dùng `/`. Đây là cách chống open redirect.
+- Form lỗi thì hiển thị lại form, **giữ tên đăng nhập đã gõ, không giữ mật khẩu**, status 400 (sai dữ liệu) hoặc 401 (sai thông tin đăng nhập).
+- Form gửi `application/x-www-form-urlencoded`. Chỉ gắn `express.urlencoded({ extended: false, limit: '10kb' })` cho các route này.
+
+**Kiểm tra `Origin`** (`src/auth/originCheck.js`), áp cho mọi request không phải `GET`/`HEAD`:
+- Có header `Origin` → phải đúng là `http(s)://<Host của request>`. Sai → 403 `BAD_ORIGIN`.
+- Không có `Origin` → dùng `Referer` theo cùng quy tắc. Không có cả hai → 403.
+- So với header `Host` của chính request, nên chạy cùng lúc ở cổng 3000 và 3001 vẫn đúng, không cần cấu hình.
+- Test và các script bằng chứng phải gửi header `Origin`.
+
+**Header trang** (`layout.ejs`):
+- Chưa đăng nhập: Gallery · Đăng nhập · Đăng ký.
+- Đã đăng nhập: Gallery · Upload · Ảnh của tôi · `<tên đăng nhập>` · Đổi mật khẩu · nút Đăng xuất.
+
+### 16.6 Phân quyền
+
+| Route | Khách | Đã đăng nhập, không phải chủ | Chủ ảnh |
+|---|---|---|---|
+| `GET /`, `GET /photos/:id`, `GET /media/*` | ✓ | ✓ | ✓ |
+| `GET /upload` | 303 → `/login?next=/upload` | ✓ | ✓ |
+| `POST /api/uploads` | **401** `UNAUTHENTICATED` | ✓ (ảnh mang `ownerId` của người gửi) | ✓ |
+| `GET /photos/:id/edit`, `GET /photos/:id/edit/source` | 303 → login | **403** | ✓ |
+| `POST /api/photos/:id/edits` | **401** | **403** `FORBIDDEN` | ✓ |
+| `POST /photos/:id/delete` | 303 → login | **403** | ✓ |
+| `GET /me`, `GET/POST /account/password` | 303 → login | ✓ (của chính mình) | ✓ |
+
+- **Kiểm tra đăng nhập trước khi đọc body upload.** Khách gửi `POST /api/uploads` thì trả 401 ngay, kèm `Connection: close`, rồi xả phần body còn lại như nhánh 413 ở §6.3a. Không ghi file tạm nào. Như vậy khách không thể dùng upload để làm đầy ổ đĩa server.
+- Ảnh không tồn tại hoặc không `PUBLISHED` → 404 như cũ. Kiểm tra quyền sau khi đã chắc ảnh tồn tại, nên 403 chỉ xuất hiện với ảnh có thật.
+- Trang chi tiết **chỉ hiện** nút Chỉnh sửa và Xóa khi người xem là chủ ảnh. Ẩn nút chỉ để giao diện gọn: **server vẫn kiểm tra quyền** ở mọi route trên.
+- `saveVersion` và `purgePhoto` không đổi logic; quyền được kiểm tra ở route trước khi gọi chúng.
+
+### 16.7 Hiện tên người đăng và trang "Ảnh của tôi"
+
+- Gallery và trang chi tiết: dưới tiêu đề ghi "Đăng bởi `<tên đăng nhập>`". Gallery tải kèm `owner.username` trong cùng câu truy vấn (`include`), không tạo thêm truy vấn cho từng ảnh.
+- `GET /me`: giống gallery, nhưng chỉ ảnh `PUBLISHED` của người đang đăng nhập, mới nhất trước. Dùng lại partial `photo-image.ejs`, cùng `sizes` và breakpoint với gallery, nên không ảnh hưởng mục bằng chứng 06–07. Chưa có ảnh nào → "Bạn chưa đăng ảnh nào" kèm link Upload.
+
+### 16.8 Khóa tạm khi đoán mật khẩu
+
+- Mỗi lần sai mật khẩu với một tên đăng nhập có thật: tăng `failedLoginCount`. Đạt **5 lần** → đặt `lockedUntil = now + 15 phút`, rồi đặt lại bộ đếm về 0.
+- Trong thời gian bị khóa: từ chối đăng nhập **kể cả khi mật khẩu đúng**, báo "Tài khoản tạm khóa do đăng nhập sai nhiều lần. Thử lại sau N phút". Đăng nhập đúng khi không bị khóa → đặt lại bộ đếm về 0.
+- Lưu trong DB nên đúng cả khi chạy nhiều server. Tăng bộ đếm bằng `update ... increment` (nguyên tử), để hai request sai cùng lúc không làm mất một lần đếm.
+- Đánh đổi được chấp nhận: người khác có thể cố tình gõ sai để khóa tài khoản của bạn 15 phút. README ghi rõ điều này. Không làm chặn theo IP.
+- Hằng số (`MAX_FAILED_LOGINS = 5`, `LOCK_MINUTES = 15`) đặt trong `src/auth/policy.js`. Test truyền `now` để không phải chờ thật.
+
+### 16.9 Đổi mật khẩu
+
+- `GET/POST /account/password`: mật khẩu hiện tại, mật khẩu mới, nhập lại mật khẩu mới. Mật khẩu mới theo quy tắc §16.5 và phải khác mật khẩu cũ.
+- Sai mật khẩu hiện tại thì **cũng tính vào** bộ đếm khóa tạm §16.8, để không ai lợi dụng trang này để dò mật khẩu.
+- Thành công: cập nhật `passwordHash` và `passwordChangedAt`, **xóa mọi session khác của người dùng** (`Session.deleteMany({ where: { userId, NOT: { sid: hiện tại } } })`), rồi `regenerate()` session hiện tại. Người dùng vẫn đăng nhập ở thiết bị đang dùng, các thiết bị khác bị đăng xuất.
+
+### 16.10 Chuẩn bị đổi sang email sau này
+
+- Mọi chỗ code xử lý "tên đăng nhập" đi qua một hàm duy nhất `normalizeLogin()` và một cột duy nhất `User.username`. Sau này thêm cột `email String? @unique` và cho `normalizeLogin()` nhận cả email là đủ, không phải viết lại luồng đăng nhập.
+- Không lưu tên đăng nhập vào `Photo`. Chỉ lưu `ownerId`, tên luôn lấy qua quan hệ.
+
+### 16.11 Kiểm thử
+
+- Helper mới: `registerAndLogin(app, { username })` trả về một `supertest.agent` đã đăng nhập (agent giữ cookie giữa các request). Mọi request thay đổi dữ liệu trong helper tự gắn header `Origin`.
+- `uploadFiles` mặc định dùng agent đã đăng nhập. Các test cũ chỉ cần đổi cách tạo request.
+
+| Test | Kiểm tra |
+|---|---|
+| `auth.register` | Tạo được tài khoản và đang đăng nhập ngay; tên viết hoa được chuẩn hóa; tên trùng (kể cả khác hoa thường) → 400; mật khẩu ngắn, trùng tên, hai ô không khớp → 400; DB chỉ lưu hash argon2id, không có mật khẩu gốc |
+| `auth.login` | Đúng → đăng nhập, session ID **khác** session trước khi đăng nhập; sai tên và sai mật khẩu cho **cùng một thông báo**; đăng xuất bằng POST → không còn đăng nhập; `GET /logout` không đăng xuất |
+| `auth.session` | Cookie có `HttpOnly`, `SameSite=Lax`; khách xem gallery **không** nhận cookie session; hai app cùng DB dùng chung một cookie (mô phỏng §15.9); trang HTML có `Cache-Control: private, no-store`; media vẫn `public, immutable` và không đọc bảng `Session` |
+| `auth.origin` | POST thiếu `Origin` và `Referer` → 403; `Origin` khác host → 403; đúng host → qua |
+| `auth.redirect` | `next=/upload` → tới `/upload`; `next=//evil.com`, `next=https://evil.com`, `next=/\evil.com` → về `/` |
+| `auth.access` | Mỗi dòng của bảng §16.6 với ba vai trò khách / người khác / chủ ảnh. Khách upload → 401 **và `tmp/` vẫn rỗng**. Người khác sửa, xóa → 403 và ảnh không đổi. HTML trang chi tiết chỉ có nút Sửa/Xóa với chủ ảnh |
+| `auth.lockout` | Sai 4 lần vẫn thử được; lần 5 → khóa; mật khẩu đúng trong lúc khóa vẫn bị từ chối; qua 15 phút (truyền `now`) → đăng nhập được và bộ đếm về 0; hai request sai đồng thời được đếm đủ |
+| `auth.password` | Sai mật khẩu hiện tại → 400 và tăng bộ đếm khóa; thành công → session ở agent khác bị đăng xuất, agent hiện tại vẫn đăng nhập; mật khẩu cũ không còn dùng được |
+| `pages` (bổ sung) | "Đăng bởi …" hiện đúng tên; `/me` chỉ có ảnh của mình, không có ảnh của người khác hay ảnh đã xóa |
+
+### 16.12 Bằng chứng
+
+| # | Nội dung |
+|---|---|
+| 01–04 | Upload khi **đã đăng nhập**. Ảnh chụp Network thấy cookie `gallery.sid` gửi kèm request |
+| 16 (bổ sung) | Đăng nhập ở cổng 3000, mở cổng 3001: vẫn đang đăng nhập (session dùng chung qua DB) |
+| **17 (mới)** | `17-auth-access.txt`: khách `POST /api/uploads` → 401; khách mở `/upload` → 303 về `/login`; người khác xóa ảnh → 403; khách vẫn xem gallery và GET media → 200. Có thể sinh bằng `npm run evidence:requests` (script tự đăng ký hai tài khoản tạm) |
+| **18 (mới)** | `18-auth-ui.png`: gallery khi chưa đăng nhập (không có Upload), trang chi tiết khi là chủ ảnh (có Sửa/Xóa) và khi là người khác (không có), thông báo khóa tạm sau 5 lần sai |
+
+`evidence:requests` (mục 08–09, 17) tự đăng ký một tài khoản tên `evidence-<ngẫu nhiên>` và gửi kèm header `Origin`. README hướng dẫn tạo tài khoản và đăng nhập trước khi chụp các mục còn lại.
