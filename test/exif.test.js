@@ -35,7 +35,7 @@ function readGps(exif)
 
 test('exif xoay pixel theo orientation và loại EXIF khỏi PNG gốc và WebP', async t =>
 {
-    const { prisma, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, readObject, uploadFiles } = await prepareTest(t);
     const filename = 'exif-rotated.jpg';
     const source = await sharp(path.join(__dirname, 'fixtures', filename)).metadata();
     assert.deepEqual([source.width, source.height, source.orientation], [1200, 800, 6]);
@@ -54,7 +54,7 @@ test('exif xoay pixel theo orientation và loại EXIF khỏi PNG gốc và WebP
         include: { variants: { orderBy: { width: 'asc' } } }
     });
     assert.deepEqual([photo.originalWidth, photo.originalHeight], [800, 1200]);
-    const original = await sharp(storage.keyToPath(photo.originalKey)).metadata();
+    const original = await sharp(await readObject(photo.originalKey)).metadata();
     assert.deepEqual([original.width, original.height], [800, 1200]);
     assert.equal(original.exif, undefined);
     assert.equal(original.orientation, undefined);
@@ -62,14 +62,14 @@ test('exif xoay pixel theo orientation và loại EXIF khỏi PNG gốc và WebP
 
     for (const variant of photo.variants)
     {
-        const webp = await sharp(storage.keyToPath(variant.storageKey)).metadata();
+        const webp = await sharp(await readObject(variant.storageKey)).metadata();
         assert.ok(webp.width < webp.height);
         assert.equal(webp.exif, undefined);
         assert.equal(webp.orientation, undefined);
     }
 
     const largest = photo.variants.at(-1);
-    const { data, info } = await sharp(storage.keyToPath(largest.storageKey)).raw().toBuffer({ resolveWithObject: true });
+    const { data, info } = await sharp(await readObject(largest.storageKey)).raw().toBuffer({ resolveWithObject: true });
     function isRed(x, y)
     {
         const offset = (y * info.width + x) * info.channels;

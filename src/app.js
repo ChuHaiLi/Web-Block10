@@ -4,7 +4,7 @@ const { createApiRouter } = require('./routes/api');
 const { createMediaRouter } = require('./routes/media');
 const { createPagesRouter } = require('./routes/pages');
 
-function createApp({ prisma, storage, faultInject = '' })
+function createApp({ prisma, objectStore, scratch, faultInject = '' })
 {
     const app = express();
     app.set('view engine', 'ejs');
@@ -12,9 +12,9 @@ function createApp({ prisma, storage, faultInject = '' })
     app.set('views', path.join(__dirname, 'views'));
     app.use(express.static(path.join(__dirname, 'public')));
 
-    app.use('/api', createApiRouter(prisma, storage));
-    app.use('/media', createMediaRouter(prisma, storage));
-    app.use(createPagesRouter(prisma, storage));
+    app.use('/api', createApiRouter(prisma, objectStore, scratch));
+    app.use('/media', createMediaRouter(prisma, objectStore));
+    app.use(createPagesRouter(prisma, objectStore));
 
     app.use((req, res) =>
     {

@@ -6,7 +6,7 @@ const supertest = require('supertest');
 const { createApp } = require('../src/app');
 const { loadConfig } = require('../src/config');
 const { createDb } = require('../src/db');
-const { createStorage } = require('../src/storage');
+const { createScratch } = require('../src/storage/scratch');
 const { prepareTest } = require('./helpers');
 
 async function listen(app)
@@ -24,9 +24,9 @@ function close(server)
     });
 }
 
-test('restart tạo lại app với cùng DB và UPLOAD_ROOT, gallery và media vẫn 200', async t =>
+test('restart tạo app mới với cùng DB và object store nhưng kho nháp mới, gallery và media vẫn 200', async t =>
 {
-    const { app, prisma, storage } = await prepareTest(t);
+    const { app, prisma, scratch, reopenObjectStore } = await prepareTest(t);
     const first = await listen(app);
     let photo;
     let savedMedia;
@@ -55,8 +55,11 @@ test('restart tạo lại app với cùng DB và UPLOAD_ROOT, gallery và media 
     }
 
     const restartedPrisma = createDb(loadConfig().databaseUrl);
-    const restartedStorage = createStorage(storage.root);
-    const restartedApp = createApp({ prisma: restartedPrisma, storage: restartedStorage });
+    const restartedScratch = createScratch(path.join(scratch.root, 'restart'));
+    await restartedScratch.initialize();
+    const restartedApp = createApp({
+        prisma: restartedPrisma, objectStore: reopenObjectStore(), scratch: restartedScratch
+    });
     assert.notEqual(restartedApp, app);
     const second = await listen(restartedApp);
     try

@@ -146,7 +146,7 @@ test('pages nạp edits hiện tại và kích thước gốc cho trang chỉnh 
 
 test('pages dùng variant của currentVersion và fallback về variant nhỏ nhất nếu mọi width > 960', async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, objectStore, readObject, uploadFiles } = await prepareTest(t);
     const alt = 'Mô tả ảnh có nhiều phiên bản';
     const { body } = await uploadFiles([{ filename: 'photo.jpg', altText: alt }]).expect(200);
     const [result] = body.results;
@@ -157,9 +157,9 @@ test('pages dùng variant của currentVersion và fallback về variant nhỏ n
     for (const width of [1100, 1600])
     {
         const storageKey = 'photos/' + id + '/v2/' + width + '.webp';
-        const { data, info } = await sharp(storage.keyToPath(original.originalKey))
+        const { data, info } = await sharp(await readObject(original.originalKey))
             .resize({ width }).webp({ quality: 80 }).toBuffer({ resolveWithObject: true });
-        await storage.writeFile(storageKey, data);
+        await objectStore.put(storageKey, data, { contentType: 'image/webp' });
         variants.push({ width: info.width, height: info.height, bytes: info.size, storageKey, mime: 'image/webp' });
     }
     await prisma.$transaction([

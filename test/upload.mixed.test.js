@@ -5,7 +5,7 @@ const { prepareTest } = require('./helpers');
 
 test('upload.mixed chỉ công bố ảnh hợp lệ và giữ index của từng kết quả', async t =>
 {
-    const { prisma, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, scratch, listObjectKeys, uploadFiles } = await prepareTest(t);
     const response = await uploadFiles([
         { filename: 'photo.jpg', altText: '  Ảnh JPEG hợp lệ  ' },
         { filename: 'fake.jpg' },
@@ -28,14 +28,14 @@ test('upload.mixed chỉ công bố ảnh hợp lệ và giữ index của từn
     assert.equal(photos[0].alt, 'Ảnh JPEG hợp lệ');
     assert.equal(photos[0].variants.length, 3);
     assert.equal(await prisma.photoVersion.count(), 1);
-    assert.deepEqual(await storage.listDir('photos'), [id]);
-    assert.deepEqual(await storage.listDir('originals'), [id + '.png']);
-    assert.deepEqual(await storage.listDir('tmp'), []);
+    assert.deepEqual(await listObjectKeys('photos/'), photos[0].variants.map(variant => variant.storageKey).sort());
+    assert.deepEqual(await listObjectKeys('originals/'), ['originals/' + id + '.png']);
+    assert.deepEqual(await scratch.listDir('tmp'), []);
 });
 
 test('upload.mixed kiểm tra độ dài field và xác định định dạng theo bytes', async t =>
 {
-    const { prisma, request, storage } = await prepareTest(t);
+    const { prisma, request, scratch } = await prepareTest(t);
     const file = path.join(__dirname, 'fixtures', 'small.png');
     const response = await request.post('/api/uploads')
         .field('title_0', 't'.repeat(121)).field('alt_0', 'Ảnh kiểm thử 0')
@@ -54,12 +54,12 @@ test('upload.mixed kiểm tra độ dài field và xác định định dạng t
     assert.equal(await prisma.photo.count(), 1);
     assert.equal(photo.title, 'Ảnh');
     assert.equal(photo.alt, 'Ảnh kiểm thử 4');
-    assert.deepEqual(await storage.listDir('tmp'), []);
+    assert.deepEqual(await scratch.listDir('tmp'), []);
 });
 
 test('upload.mixed bỏ qua tên field lạ và vẫn trả 200 khi mọi ảnh bị từ chối', async t =>
 {
-    const { prisma, request, storage } = await prepareTest(t);
+    const { prisma, request, scratch } = await prepareTest(t);
     const file = path.join(__dirname, 'fixtures', 'small.png');
     const response = await request.post('/api/uploads')
         .field('alt_99', 'Bỏ qua')
@@ -68,5 +68,5 @@ test('upload.mixed bỏ qua tên field lạ và vẫn trả 200 khi mọi ảnh 
         .expect(200);
     assert.deepEqual(response.body.results.map(({ index, ok, error }) => [index, ok, error.code]), [[0, false, 'ALT_REQUIRED']]);
     assert.equal(await prisma.photo.count(), 0);
-    assert.deepEqual(await storage.listDir('tmp'), []);
+    assert.deepEqual(await scratch.listDir('tmp'), []);
 });

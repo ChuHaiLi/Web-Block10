@@ -24,15 +24,13 @@ function photoHeader(filename)
         '"\r\nContent-Type: image/png\r\n\r\n';
 }
 
-async function assertNoUpload(prisma, storage)
+async function assertNoUpload(prisma, scratch, listObjectKeys)
 {
     assert.equal(await prisma.photo.count(), 0);
     assert.equal(await prisma.photoVersion.count(), 0);
     assert.equal(await prisma.photoVariant.count(), 0);
-    for (const directory of ['tmp', 'photos', 'originals'])
-    {
-        assert.deepEqual(await storage.listDir(directory), []);
-    }
+    assert.deepEqual(await scratch.listDir('tmp'), []);
+    assert.deepEqual(await listObjectKeys(), []);
 }
 
 async function listen(t, handler)
@@ -93,40 +91,40 @@ async function waitFor(condition)
 
 test('upload.request nhận đủ 5 file trong một multipart', async t =>
 {
-    const { prisma, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, scratch, uploadFiles } = await prepareTest(t);
     const files = Array.from({ length: 5 }, (_, index) => ({ filename: 'small.png', title: 'Ảnh ' + index }));
     const { body } = await uploadFiles(files).expect(200);
     assert.deepEqual(body.results.map(({ index, ok, photo }) => [index, ok, photo?.variants.map(variant => variant.width)]),
         [[0, true, [200]], [1, true, [200]], [2, true, [200]], [3, true, [200]], [4, true, [200]]]);
     assert.equal(await prisma.photo.count(), 5);
     assert.equal(await prisma.photoVariant.count(), 5);
-    assert.deepEqual(await storage.listDir('tmp'), []);
+    assert.deepEqual(await scratch.listDir('tmp'), []);
 });
 
 test('upload.request từ chối file thứ 6 và không công bố file nào', async t =>
 {
-    const { prisma, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, scratch, uploadFiles, listObjectKeys } = await prepareTest(t);
     const files = Array.from({ length: 6 }, () => ({ filename: 'small.png' }));
     const { body } = await uploadFiles(files).expect('Connection', 'close').expect(400);
     assert.equal(body.error.code, 'TOO_MANY_FILES');
-    await assertNoUpload(prisma, storage);
+    await assertNoUpload(prisma, scratch, listObjectKeys);
 });
 
 test('upload.request từ chối sai Content-Type, thiếu boundary và multipart không có ảnh', async t =>
 {
-    const { prisma, storage, request } = await prepareTest(t);
+    const { prisma, scratch, request, listObjectKeys } = await prepareTest(t);
     const nonMultipart = await request.post('/api/uploads').send({ photos: [] }).expect(400);
     assert.equal(nonMultipart.body.error.code, 'NOT_MULTIPART');
     const missingBoundary = await request.post('/api/uploads').set('Content-Type', 'multipart/form-data').send('x').expect(400);
     assert.equal(missingBoundary.body.error.code, 'MALFORMED');
     const noFiles = await request.post('/api/uploads').field('alt_0', 'Ảnh kiểm thử').expect(400);
     assert.equal(noFiles.body.error.code, 'NO_FILES');
-    await assertNoUpload(prisma, storage);
+    await assertNoUpload(prisma, scratch, listObjectKeys);
 });
 
 test('upload.request dọn file tạm khi multipart bị cắt cụt', async t =>
 {
-    const { prisma, storage, request } = await prepareTest(t);
+    const { prisma, scratch, request, listObjectKeys } = await prepareTest(t);
     const small = fs.readFileSync(path.join(__dirname, 'fixtures', 'small.png'));
     const brokenBody = Buffer.concat([
         Buffer.from(field('alt_0', 'Ảnh kiểm thử') + photoHeader('first.png')),
@@ -136,12 +134,12 @@ test('upload.request dọn file tạm khi multipart bị cắt cụt', async t =
     ]);
     const response = await request.post('/api/uploads').set('Content-Type', contentType).send(brokenBody).expect(400);
     assert.equal(response.body.error.code, 'MALFORMED');
-    await assertNoUpload(prisma, storage);
+    await assertNoUpload(prisma, scratch, listObjectKeys);
 });
 
 test('upload.request từ chối vượt giới hạn trường và tổng số part', async t =>
 {
-    const { prisma, storage, request } = await prepareTest(t);
+    const { prisma, scratch, request, listObjectKeys } = await prepareTest(t);
     const tooManyFields = Array.from({ length: 21 }, (_, index) => field('ignored_' + index, 'x')).join('');
     const tooManyParts = (partStart + 'Content-Type: text/plain\r\n\r\nx\r\n').repeat(31);
     for (const multipart of [tooManyFields, tooManyParts])
@@ -150,23 +148,23 @@ test('upload.request từ chối vượt giới hạn trường và tổng số 
             .send(Buffer.from(multipart + partEnd)).expect(400);
         assert.equal(response.body.error.code, 'MALFORMED');
     }
-    await assertNoUpload(prisma, storage);
+    await assertNoUpload(prisma, scratch, listObjectKeys);
 });
 
 test('upload.request từ chối Content-Length vượt 55 MiB trước khi nhận body', { timeout: 10000 }, async t =>
 {
-    const { app, prisma, storage } = await prepareTest(t);
+    const { app, prisma, scratch, listObjectKeys } = await prepareTest(t);
     const port = await listen(t, app);
     const response = await postRaw(port, { 'Content-Length': requestLimit + 1 });
     assert.equal(response.status, 413);
     assert.equal(response.headers.connection, 'close');
     assert.equal(response.json.error.code, 'REQUEST_TOO_LARGE');
-    await assertNoUpload(prisma, storage);
+    await assertNoUpload(prisma, scratch, listObjectKeys);
 });
 
 test('upload.request dừng chunked vượt 55 MiB và dọn file đang ghi', { timeout: 10000 }, async t =>
 {
-    const { app, prisma, storage } = await prepareTest(t);
+    const { app, prisma, scratch, listObjectKeys } = await prepareTest(t);
     const port = await listen(t, app);
     function* multipart()
     {
@@ -179,12 +177,12 @@ test('upload.request dừng chunked vượt 55 MiB và dọn file đang ghi', { 
     assert.equal(response.status, 413);
     assert.equal(response.headers.connection, 'close');
     assert.equal(response.json.error.code, 'REQUEST_TOO_LARGE');
-    await assertNoUpload(prisma, storage);
+    await assertNoUpload(prisma, scratch, listObjectKeys);
 });
 
 test('upload.request dọn mọi file tạm sau khi client ngắt giữa chừng', { timeout: 10000 }, async t =>
 {
-    const { app, prisma, storage } = await prepareTest(t);
+    const { app, prisma, scratch, listObjectKeys } = await prepareTest(t);
     let incoming;
     const port = await listen(t, (req, res) =>
     {
@@ -202,16 +200,16 @@ test('upload.request dọn mọi file tạm sau khi client ngắt giữa chừng
     client.write('\r\n' + photoHeader('second.png'));
     client.write(Buffer.alloc(65536, 0x78));
 
-    await waitFor(async () => (await storage.listDir('tmp')).length === 2);
+    await waitFor(async () => (await scratch.listDir('tmp')).length === 2);
     client.destroy();
     await waitFor(async () => incoming.aborted && incoming.listenerCount('data') === 0 &&
-        (await storage.listDir('tmp')).length === 0);
-    await assertNoUpload(prisma, storage);
+        (await scratch.listDir('tmp')).length === 0);
+    await assertNoUpload(prisma, scratch, listObjectKeys);
 });
 
 test('upload.request trả 500 và dọn cả file tạm đã ghi trước lỗi ổ đĩa', { timeout: 10000 }, async t =>
 {
-    const { prisma, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, scratch, uploadFiles, listObjectKeys } = await prepareTest(t);
     const createWriteStream = fs.createWriteStream;
     t.mock.method(fs, 'createWriteStream', (filePath, options) =>
     {
@@ -226,15 +224,15 @@ test('upload.request trả 500 và dọn cả file tạm đã ghi trước lỗi
     const response = await uploadFiles([{ filename: 'small.png' }, { filename: 'small.png' }])
         .expect('Connection', 'close').expect(500);
     assert.equal(response.body.error.code, 'STORAGE_ERROR');
-    await assertNoUpload(prisma, storage);
+    await assertNoUpload(prisma, scratch, listObjectKeys);
 });
 
 test('createApp cho phép đặt FAULT_INJECT riêng cho app test', async t =>
 {
-    const { app, prisma, storage } = await prepareTest(t, { faultInject: 'db-after-write' });
+    const { app, prisma, scratch, objectStore } = await prepareTest(t, { faultInject: 'db-after-write' });
     const { createApp } = require('../src/app');
-    const secondApp = createApp({ prisma, storage, faultInject: 'edit-db-after-write' });
+    const secondApp = createApp({ prisma, scratch, objectStore, faultInject: 'edit-db-after-write' });
     assert.equal(app.get('faultInject'), 'db-after-write');
     assert.equal(secondApp.get('faultInject'), 'edit-db-after-write');
-    assert.equal(createApp({ prisma, storage }).get('faultInject'), '');
+    assert.equal(createApp({ prisma, scratch, objectStore }).get('faultInject'), '');
 });

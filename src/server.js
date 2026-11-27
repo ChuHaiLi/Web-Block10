@@ -2,13 +2,15 @@ const { createApp } = require('./app');
 const { runCleanup } = require('./cleanup/runCleanup');
 const { loadConfig } = require('./config');
 const { createDb } = require('./db');
-const { createStorage } = require('./storage');
+const { createObjectStore } = require('./storage/objectStore');
+const { createScratch } = require('./storage/scratch');
 
 async function start()
 {
     const config = loadConfig();
     const prisma = createDb(config.databaseUrl);
-    const storage = createStorage(config.uploadRoot);
+    const objectStore = createObjectStore(config);
+    const scratch = createScratch(config.uploadRoot);
     let running = false;
 
     async function cleanup()
@@ -17,7 +19,7 @@ async function start()
         running = true;
         try
         {
-            await runCleanup({ prisma, storage, versionRetentionHours: config.versionRetentionHours });
+            await runCleanup({ prisma, objectStore, scratch, versionRetentionHours: config.versionRetentionHours });
         }
         catch (error)
         {
@@ -31,10 +33,11 @@ async function start()
 
     try
     {
-        await storage.initialize();
+        await objectStore.ensureReady();
+        await scratch.initialize();
         await prisma.$connect();
         await cleanup();
-        const app = createApp({ prisma, storage, faultInject: config.faultInject });
+        const app = createApp({ prisma, objectStore, scratch, faultInject: config.faultInject });
         const server = app.listen(config.port, () =>
         {
             console.log(`Photo Gallery: http://localhost:${server.address().port}`);

@@ -13,12 +13,12 @@ async function assertEmptyDb(prisma)
     assert.equal(await prisma.photoVariant.count(), 0);
 }
 
-async function readSingleRecord(storage)
+async function readSingleRecord(scratch)
 {
-    const entries = await storage.listDir('cleanup-queue');
+    const entries = await scratch.listDir('cleanup-queue');
     assert.equal(entries.length, 1);
     assert.match(entries[0], /^\d+-[a-f0-9]{12}\.json$/);
-    return JSON.parse(await fs.readFile(storage.keyToPath('cleanup-queue/' + entries[0]), 'utf8'));
+    return JSON.parse(await fs.readFile(scratch.keyToPath('cleanup-queue/' + entries[0]), 'utf8'));
 }
 
 test('upload.fault, prepareTest chỉ kích hoạt fault injection qua option', async t =>
@@ -43,16 +43,13 @@ test('upload.fault, prepareTest chỉ kích hoạt fault injection qua option', 
 
 test('upload.fault, hook sau khi ghi đủ file rollback DB và dọn kho', async t =>
 {
-    const { prisma, storage, uploadFiles } = await prepareTest(t, { faultInject: 'db-after-write' });
-    const remove = storage.deleteKey;
+    const { prisma, scratch, objectStore, listObjectKeys, objectExists, uploadFiles } = await prepareTest(t, { faultInject: 'db-after-write' });
+    const remove = objectStore.delete;
     const written = [];
-    t.mock.method(storage, 'deleteKey', async key =>
+    t.mock.method(objectStore, 'delete', async key =>
     {
-        if (!key.startsWith('tmp/'))
-        {
-            await fs.access(storage.keyToPath(key));
-            written.push(key);
-        }
+        assert.ok(await objectExists(key));
+        written.push(key);
         return remove(key);
     });
 
@@ -68,17 +65,18 @@ test('upload.fault, hook sau khi ghi đủ file rollback DB và dọn kho', asyn
         ...[320, 960, 1600].map(width => 'photos/' + id + '/v1/' + width + '.webp')
     ]);
     await assertEmptyDb(prisma);
-    for (const directory of ['originals', 'photos', 'tmp', 'cleanup-queue'])
+    assert.deepEqual(await listObjectKeys(), []);
+    for (const directory of ['tmp', 'cleanup-queue'])
     {
-        assert.deepEqual(await storage.listDir(directory), []);
+        assert.deepEqual(await scratch.listDir(directory), []);
     }
 });
 
 test('upload.fault, file rollback xóa lỗi được xếp hàng và dọn lại', async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t, { faultInject: 'db-after-write' });
-    const remove = storage.deleteKey;
-    const blocked = t.mock.method(storage, 'deleteKey', async key =>
+    const { prisma, request, scratch, objectStore, listObjectKeys, objectExists, uploadFiles } = await prepareTest(t, { faultInject: 'db-after-write' });
+    const remove = objectStore.delete;
+    const blocked = t.mock.method(objectStore, 'delete', async key =>
     {
         if (key.startsWith('photos/') && key.endsWith('/320.webp'))
         {
@@ -92,30 +90,54 @@ test('upload.fault, file rollback xóa lỗi được xếp hàng và dọn lạ
     assert.equal(result.ok, false);
     assert.equal(result.error.code, 'STORAGE_ERROR');
     await assertEmptyDb(prisma);
-    const { key, reason, at } = await readSingleRecord(storage);
+    const { key, reason, at } = await readSingleRecord(scratch);
     assert.match(key, /^photos\/[A-Za-z0-9_-]{12}\/v1\/320\.webp$/);
     assert.equal(reason, 'upload-rollback');
     assert.ok(Number.isFinite(Date.parse(at)));
-    await fs.access(storage.keyToPath(key));
+    assert.ok(await objectExists(key));
     await request.get('/media/' + key).expect(404);
 
     blocked.mock.restore();
-    const summary = await runCleanup({ prisma, storage });
+    const summary = await runCleanup({ prisma, scratch, objectStore });
     assert.equal(summary.queueFilesRemoved, 1);
     assert.equal(summary.queueRecordsRemoved, 1);
-    for (const directory of ['originals', 'photos', 'tmp', 'cleanup-queue'])
+    assert.deepEqual(await listObjectKeys(), []);
+    for (const directory of ['tmp', 'cleanup-queue'])
     {
-        assert.deepEqual(await storage.listDir(directory), []);
+        assert.deepEqual(await scratch.listDir(directory), []);
     }
+});
+
+test('upload.fault, lỗi put dọn object đang ghi dở và các object đã ghi', async t =>
+{
+    const { prisma, objectStore, scratch, listObjectKeys, uploadFiles } = await prepareTest(t);
+    const put = objectStore.put;
+    t.mock.method(objectStore, 'put', async (key, bytes, options) =>
+    {
+        if (key.endsWith('/320.webp'))
+        {
+            await put(key, bytes.subarray(0, 10), options);
+            throw Object.assign(new Error('Put lỗi sau khi ghi một phần'), { code: 'EIO' });
+        }
+        await put(key, bytes, options);
+    });
+
+    const { body } = await uploadFiles([{ filename: 'photo.png' }]).expect(200);
+    assert.equal(body.results[0].ok, false);
+    assert.equal(body.results[0].error.code, 'STORAGE_ERROR');
+    await assertEmptyDb(prisma);
+    assert.deepEqual(await listObjectKeys(), []);
+    assert.deepEqual(await scratch.listDir('tmp'), []);
+    assert.deepEqual(await scratch.listDir('cleanup-queue'), []);
 });
 
 for (const { aborted, reason } of [{ aborted: false, reason: 'upload-temp' }, { aborted: true, reason: 'upload-abort' }])
 {
     test('upload.fault, xếp hàng xóa lại file tạm ' + reason, async t =>
     {
-        const { prisma, storage, uploadFiles } = await prepareTest(t);
-        const remove = storage.deleteKey;
-        const blocked = t.mock.method(storage, 'deleteKey', async key =>
+        const { prisma, scratch, objectStore, uploadFiles } = await prepareTest(t);
+        const remove = scratch.deleteKey;
+        const blocked = t.mock.method(scratch, 'deleteKey', async key =>
         {
             if (key.startsWith('tmp/') && key.endsWith('-0'))
             {
@@ -137,13 +159,13 @@ for (const { aborted, reason } of [{ aborted: false, reason: 'upload-temp' }, { 
             assert.equal(await prisma.photo.count(), 1);
         }
 
-        const record = await readSingleRecord(storage);
+        const record = await readSingleRecord(scratch);
         assert.equal(record.reason, reason);
         assert.match(record.key, /^tmp\/[A-Za-z0-9_-]{12}-0$/);
-        assert.deepEqual(await storage.listDir('tmp'), [record.key.slice('tmp/'.length)]);
+        assert.deepEqual(await scratch.listDir('tmp'), [record.key.slice('tmp/'.length)]);
         blocked.mock.restore();
-        await runCleanup({ prisma, storage });
-        assert.deepEqual(await storage.listDir('tmp'), []);
-        assert.deepEqual(await storage.listDir('cleanup-queue'), []);
+        await runCleanup({ prisma, scratch, objectStore });
+        assert.deepEqual(await scratch.listDir('tmp'), []);
+        assert.deepEqual(await scratch.listDir('cleanup-queue'), []);
     });
 }

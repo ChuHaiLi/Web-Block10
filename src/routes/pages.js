@@ -1,5 +1,4 @@
 const express = require('express');
-const fs = require('node:fs/promises');
 const sharp = require('sharp');
 const { MAX_PIXELS } = require('../upload/validateImage');
 const { purgePhoto } = require('../cleanup/purgePhoto');
@@ -21,7 +20,7 @@ function presentPhoto(photo)
     return { ...photo, variants, cover, srcset };
 }
 
-function createPagesRouter(prisma, storage)
+function createPagesRouter(prisma, objectStore)
 {
     const router = express.Router();
     router.get('/', async (req, res, next) =>
@@ -103,7 +102,7 @@ function createPagesRouter(prisma, storage)
             });
             if (!photo) return next();
 
-            const original = await fs.readFile(storage.keyToPath(photo.originalKey));
+            const original = await objectStore.getBuffer(photo.originalKey);
             const webp = await sharp(original, { limitInputPixels: MAX_PIXELS, failOn: 'warning' })
                 .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
                 .webp({ quality: 80 })
@@ -112,7 +111,7 @@ function createPagesRouter(prisma, storage)
         }
         catch (error)
         {
-            if (error.code === 'ENOENT') return next();
+            if (error.code === 'NOT_FOUND') return next();
             next(error);
         }
     });
@@ -128,7 +127,7 @@ function createPagesRouter(prisma, storage)
             });
             if (updated.count === 0) return next();
 
-            await purgePhoto({ prisma, storage, id });
+            await purgePhoto({ prisma, objectStore, id });
             res.redirect(303, '/');
         }
         catch (error)

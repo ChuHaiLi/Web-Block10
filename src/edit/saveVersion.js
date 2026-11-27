@@ -1,4 +1,3 @@
-const fs = require('node:fs/promises');
 const { editError } = require('./errors');
 const renderer = require('./renderEdits');
 const { validateEdits } = require('./validateEdits');
@@ -17,7 +16,7 @@ async function currentPhoto(prisma, id)
     });
 }
 
-async function saveVersion({ prisma, storage, queue, id, input, faultInject })
+async function saveVersion({ prisma, objectStore, queue, id, input, faultInject })
 {
     const photo = await prisma.photo.findUnique({
         where: { id, status: 'PUBLISHED' },
@@ -45,7 +44,7 @@ async function saveVersion({ prisma, storage, queue, id, input, faultInject })
     const writtenKeys = [];
     try
     {
-        const original = await fs.readFile(storage.keyToPath(allocated.originalKey));
+        const original = await objectStore.getBuffer(allocated.originalKey);
         const { image, width, height } = await renderer.renderEdits(original, edits);
         const variants = [];
         for (const variantWidth of variantWidths)
@@ -55,7 +54,7 @@ async function saveVersion({ prisma, storage, queue, id, input, faultInject })
                 .webp({ quality: 80 })
                 .toBuffer({ resolveWithObject: true });
             writtenKeys.push(storageKey);
-            await storage.writeFile(storageKey, data);
+            await objectStore.put(storageKey, data, { contentType: 'image/webp' });
             variants.push({ width: info.width, height: info.height, mime: 'image/webp', bytes: info.size, storageKey });
         }
 
@@ -96,7 +95,11 @@ async function saveVersion({ prisma, storage, queue, id, input, faultInject })
             if (!latest) throw editError('NOT_FOUND');
             throw editError('VERSION_CONFLICT', { currentVersion: latest.currentVersion });
         }
-        if (error.code === 'ENOENT' && !await currentPhoto(prisma, id)) throw editError('NOT_FOUND');
+        if (error.code === 'NOT_FOUND')
+        {
+            if (!await currentPhoto(prisma, id)) throw editError('NOT_FOUND');
+            throw editError('STORAGE_ERROR', { cause: error });
+        }
         throw error;
     }
 }

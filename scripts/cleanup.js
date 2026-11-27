@@ -1,19 +1,22 @@
 const { runCleanup } = require('../src/cleanup/runCleanup');
 const { loadConfig } = require('../src/config');
 const { createDb } = require('../src/db');
-const { createStorage } = require('../src/storage');
+const { createObjectStore } = require('../src/storage/objectStore');
+const { createScratch } = require('../src/storage/scratch');
 
 async function cleanup()
 {
     const config = loadConfig();
     const prisma = createDb(config.databaseUrl);
-    const storage = createStorage(config.uploadRoot);
+    const objectStore = createObjectStore(config);
+    const scratch = createScratch(config.uploadRoot);
 
     try
     {
-        await storage.initialize();
+        await objectStore.ensureReady();
+        await scratch.initialize();
         await prisma.$connect();
-        await runCleanup({ prisma, storage, versionRetentionHours: config.versionRetentionHours });
+        await runCleanup({ prisma, objectStore, scratch, versionRetentionHours: config.versionRetentionHours });
     }
     finally
     {

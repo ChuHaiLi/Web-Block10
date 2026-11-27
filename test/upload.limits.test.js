@@ -7,7 +7,7 @@ const { prepareTest } = require('./helpers');
 
 test('upload.limits kiểm tra biên byte, pixel và kích thước WebP', async t =>
 {
-    const { prisma, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, scratch, listObjectKeys, readObject, uploadFiles } = await prepareTest(t);
     const fixtures = path.join(__dirname, 'fixtures');
     const sizeLimit = 10 * 1024 * 1024;
     assert.equal((await fs.stat(path.join(fixtures, 'exactly-10mib.png'))).size, sizeLimit);
@@ -38,14 +38,14 @@ test('upload.limits kiểm tra biên byte, pixel và kích thước WebP', async
     assert.equal(maxPixels.originalWidth * maxPixels.originalHeight, 40_000_000);
     assert.equal(await prisma.photoVersion.count(), 2);
     assert.equal(await prisma.photoVariant.count(), 6);
-    assert.deepEqual((await storage.listDir('photos')).sort(), ids);
-    assert.deepEqual((await storage.listDir('originals')).sort(), ids.map(id => id + '.png'));
-    assert.deepEqual(await storage.listDir('tmp'), []);
+    assert.deepEqual(await listObjectKeys('photos/'), photos.flatMap(photo => photo.variants.map(variant => variant.storageKey)).sort());
+    assert.deepEqual(await listObjectKeys('originals/'), ids.map(id => 'originals/' + id + '.png'));
+    assert.deepEqual(await scratch.listDir('tmp'), []);
     for (const photo of photos)
     {
         for (const variant of photo.variants)
         {
-            assert.equal((await fs.stat(storage.keyToPath(variant.storageKey))).size, variant.bytes);
+            assert.equal((await readObject(variant.storageKey)).length, variant.bytes);
         }
     }
 });

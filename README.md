@@ -45,6 +45,8 @@ Lỗi cấp request như quá số file, quá tổng dung lượng hoặc multip
 
 ## Kho ảnh và xóa
 
+`STORAGE_DRIVER=local` lưu ảnh công bố và PNG gốc qua interface `ObjectStore`. File tạm và hàng đợi dọn dùng kho nháp trên đĩa. Với driver local, cả hai nằm trong `UPLOAD_ROOT` và dùng các prefix riêng.
+
 | Đường dẫn trong `UPLOAD_ROOT` | Nội dung |
 |---|---|
 | `originals/<id>.png` | Bản gốc đã chuẩn hóa, dùng nội bộ |
@@ -55,6 +57,8 @@ Lỗi cấp request như quá số file, quá tổng dung lượng hoặc multip
 DB giữ storage key tương đối. Khi xóa ảnh, trạng thái chuyển sang `DELETING` để ẩn ảnh khỏi gallery, trang chi tiết và media. Sau khi xóa hết file, ứng dụng đánh dấu `Photo.status = PURGED` và đặt `purgedAt` cho ảnh và các phiên bản. Các bản ghi metadata được giữ lại để đối chiếu storage key.
 
 Cleanup chạy khi server khởi động và theo lịch, mặc định mỗi 15 phút. Có thể chạy ngay bằng `npm run cleanup`. Cleanup thử lại các bản ghi trong hàng đợi và các ảnh đang `DELETING`. File tạm, bản ghi `.tmp` đang ghi dở và file mồ côi được xét dọn khi cũ hơn một giờ.
+
+Các bộ đếm cleanup cho object ghi số key đã xử lý thành công, kể cả key đã vắng mặt khi lệnh xóa chạy. `npm run evidence:db` liệt kê driver, key, kích thước và thời điểm sửa cuối của các object.
 
 Version cũ tiếp tục phục vụ trong `VERSION_RETENTION_HOURS`, mặc định 24 giờ tính từ `supersededAt`. Khi hết hạn, cleanup xóa các file variant và đặt `purgedAt`. Nếu xóa gặp lỗi, cleanup thử lại ở lượt sau. Version hiện tại và PNG gốc được giữ lại.
 

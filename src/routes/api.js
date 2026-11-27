@@ -33,13 +33,13 @@ function getMetadata(fields, { index, filename })
     return { title: title || fallback || 'Ảnh không tên', alt };
 }
 
-async function uploadPhoto(prisma, storage, queue, faultInject, file, fields)
+async function uploadPhoto(prisma, scratch, objectStore, queue, faultInject, file, fields)
 {
     const { index, filename } = file;
     try
     {
         const metadata = getMetadata(fields, file);
-        const { id, title, variants } = await savePhoto({ prisma, storage, queue, faultInject, file, ...metadata });
+        const { id, title, variants } = await savePhoto({ prisma, scratch, objectStore, queue, faultInject, file, ...metadata });
         return {
             index,
             filename,
@@ -95,16 +95,16 @@ function editJsonError(error, req, res, next)
     if (!res.destroyed) res.status(400).json({ error: { code: invalid.code, message: invalid.message } });
 }
 
-function createApiRouter(prisma, storage)
+function createApiRouter(prisma, objectStore, scratch)
 {
     const router = express.Router();
-    const queue = createCleanupQueue(storage);
+    const queue = createCleanupQueue({ objectStore, scratch });
     router.post('/uploads', async (req, res, next) =>
     {
         let parsed;
         try
         {
-            parsed = await parseMultipart(req, storage, queue);
+            parsed = await parseMultipart(req, scratch, queue);
         }
         catch (error)
         {
@@ -128,7 +128,7 @@ function createApiRouter(prisma, storage)
         {
             for (const file of files)
             {
-                results.push(await uploadPhoto(prisma, storage, queue, faultInject, file, fields));
+                results.push(await uploadPhoto(prisma, scratch, objectStore, queue, faultInject, file, fields));
                 if (await queue.deleteOrEnqueue(file.tmpKey, 'upload-temp')) remaining.delete(file.tmpKey);
             }
         }
@@ -149,7 +149,7 @@ function createApiRouter(prisma, storage)
         try
         {
             const result = await saveVersion({
-                prisma, storage, queue, id: req.params.id, input: req.body,
+                prisma, objectStore, queue, id: req.params.id, input: req.body,
                 faultInject: req.app.get('faultInject')
             });
             res.json(result);

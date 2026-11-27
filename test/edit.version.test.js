@@ -1,5 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs/promises');
 const { test } = require('node:test');
 const sharp = require('sharp');
 const { prepareTest } = require('./helpers');
@@ -17,7 +16,7 @@ async function expectPreview(request, photoId)
 
 test('edit.version lưu v2 theo crop và restore từ PNG gốc thành v3', async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, objectStore, readObject, uploadFiles } = await prepareTest(t);
     const { body } = await uploadFiles([{ filename: 'photo.jpg' }]).expect(200);
     assert.equal(body.results[0].ok, true);
     const photo = body.results[0].photo;
@@ -41,7 +40,7 @@ test('edit.version lưu v2 theo crop và restore từ PNG gốc thành v3', asyn
         where: { photoId_version_width: { photoId: photo.id, version: 2, width: 250 } }
     });
     assert.equal(variant.mime, 'image/webp');
-    assert.equal(variant.bytes, (await fs.stat(storage.keyToPath(variant.storageKey))).size);
+    assert.equal(variant.bytes, (await readObject(variant.storageKey)).length);
     const rendered = await request.get(v2Url).expect('Content-Type', 'image/webp').expect(200);
     const renderedMetadata = await sharp(rendered.body).metadata();
     assert.deepEqual([renderedMetadata.width, renderedMetadata.height, renderedMetadata.exif], [250, 400, undefined]);
@@ -75,7 +74,7 @@ test('edit.version lưu v2 theo crop và restore từ PNG gốc thành v3', asyn
     });
     for (const { url: media } of photo.variants)
     {
-        await storage.deleteKey(media.slice('/media/'.length));
+        await objectStore.delete(media.slice('/media/'.length));
         await request.get(media).expect(404);
     }
     await expectPreview(request, photo.id);
@@ -83,7 +82,7 @@ test('edit.version lưu v2 theo crop và restore từ PNG gốc thành v3', asyn
 
 test('edit.version baseVersion nguyên vượt phạm vi Int của DB trả conflict', async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, scratch, uploadFiles } = await prepareTest(t);
     const { body } = await uploadFiles([{ filename: 'small.png' }]).expect(200);
     const { id } = body.results[0].photo;
     const response = await request.post('/api/photos/' + id + '/edits')
@@ -91,5 +90,5 @@ test('edit.version baseVersion nguyên vượt phạm vi Int của DB trả conf
     assert.equal(response.body.error.code, 'VERSION_CONFLICT');
     assert.equal(response.body.currentVersion, 1);
     assert.equal(await prisma.photoVersion.count({ where: { photoId: id } }), 1);
-    assert.deepEqual(await storage.listDir('cleanup-queue'), []);
+    assert.deepEqual(await scratch.listDir('cleanup-queue'), []);
 });

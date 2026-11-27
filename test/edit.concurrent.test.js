@@ -1,6 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs/promises');
-const path = require('node:path');
 const { test } = require('node:test');
 const renderer = require('../src/edit/renderEdits');
 const { prepareTest } = require('./helpers');
@@ -36,7 +34,7 @@ for (const restoreInRace of [false, true])
     const description = restoreInRace ? 'Lưu và Khôi phục' : 'hai lần Lưu';
     test('edit.concurrent ' + description + ' chỉ một request commit', { timeout: 15000 }, async t =>
     {
-        const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+        const { prisma, request, scratch, listObjectKeys, uploadFiles } = await prepareTest(t);
         const { body } = await uploadFiles([{ filename: 'corners.png' }]).expect(200);
         assert.equal(body.results[0].ok, true);
         const { id, variants } = body.results[0].photo;
@@ -84,8 +82,8 @@ for (const restoreInRace of [false, true])
         const winnerEdits = editOptions[winnerIndex];
         assert.deepEqual(after.versions.at(-1).edits, winnerEdits.restore ? { rotate: 0, flipH: false, crop: null } : winnerEdits);
         assert.ok(after.variants.every(variant => variant.version !== loser));
-        await assert.rejects(fs.access(path.join(storage.root, 'photos', id, 'v' + loser)), { code: 'ENOENT' });
-        assert.deepEqual(await storage.listDir('cleanup-queue'), []);
+        assert.deepEqual(await listObjectKeys('photos/' + id + '/v' + loser + '/'), []);
+        assert.deepEqual(await scratch.listDir('cleanup-queue'), []);
         for (const { url: media } of [...variants, ...winner.variants]) await request.get(media).expect(200);
         const loserWidths = editOptions[1 - winnerIndex].rotate === 90 ? [300] : [320, 400];
         for (const width of loserWidths)
@@ -97,17 +95,17 @@ for (const restoreInRace of [false, true])
 
 test('edit.concurrent xóa trong lúc render trả 404 và dọn version đang lưu', { timeout: 15000 }, async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, scratch, objectStore, listObjectKeys, uploadFiles } = await prepareTest(t);
     const { body } = await uploadFiles([{ filename: 'corners.png' }]).expect(200);
     assert.equal(body.results[0].ok, true);
     const { id } = body.results[0].photo;
     const pause = pauseRender(t, 1);
     const writing = [];
-    const writeFile = storage.writeFile;
-    t.mock.method(storage, 'writeFile', async (key, bytes) =>
+    const put = objectStore.put;
+    t.mock.method(objectStore, 'put', async (key, bytes, options) =>
     {
         if (key.startsWith('photos/' + id + '/v2/')) writing.push(key);
-        return writeFile(key, bytes);
+        return put(key, bytes, options);
     });
     const save = request.post('/api/photos/' + id + '/edits')
         .send({ baseVersion: 1, ...full }).expect(404).then(response => response);
@@ -133,8 +131,8 @@ test('edit.concurrent xóa trong lúc render trả 404 và dọn version đang l
     assert.deepEqual(stored.versions.map(row => row.version), [1]);
     assert.ok(stored.variants.every(variant => variant.version === 1));
     assert.deepEqual(writing, ['photos/' + id + '/v2/300.webp']);
-    assert.deepEqual(await storage.listDir('photos'), []);
-    assert.deepEqual(await storage.listDir('originals'), []);
-    assert.deepEqual(await storage.listDir('cleanup-queue'), []);
+    assert.deepEqual(await listObjectKeys('photos/'), []);
+    assert.deepEqual(await listObjectKeys('originals/'), []);
+    assert.deepEqual(await scratch.listDir('cleanup-queue'), []);
     await request.get('/media/' + writing[0]).expect(404);
 });

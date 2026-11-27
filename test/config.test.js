@@ -24,4 +24,17 @@ test('config mặc định dùng gallery-uploads-test khi .env.test thiếu UPLO
 
     const config = loadConfig({ nodeEnv: 'test' });
     assert.equal(config.uploadRoot, path.resolve(__dirname, '../../gallery-uploads-test'));
+    assert.equal(config.storageDriver, 'local');
+});
+
+test('config từ chối STORAGE_DRIVER sai và cho phép test chọn driver rõ ràng', t =>
+{
+    const env = {
+        '.env': {},
+        '.env.test': { DATABASE_URL: databaseUrl, STORAGE_DRIVER: 's3' }
+    };
+    t.mock.method(dotenv, 'config', ({ path: filename }) => ({ parsed: env[path.basename(filename)] }));
+    assert.equal(loadConfig({ nodeEnv: 'test' }).storageDriver, 's3');
+    assert.equal(loadConfig({ nodeEnv: 'test', storageDriver: 'local' }).storageDriver, 'local');
+    assert.throws(() => loadConfig({ nodeEnv: 'test', storageDriver: 'disk' }), /STORAGE_DRIVER/);
 });

@@ -5,7 +5,8 @@ const supertest = require('supertest');
 const { createApp } = require('../src/app');
 const { loadConfig } = require('../src/config');
 const { createDb } = require('../src/db');
-const { createStorage } = require('../src/storage');
+const { createObjectStore } = require('../src/storage/objectStore');
+const { createScratch } = require('../src/storage/scratch');
 
 function requireTestDatabase(databaseUrl)
 {
@@ -16,14 +17,51 @@ function requireTestDatabase(databaseUrl)
     }
 }
 
+async function prepareStorage(t, { storageDriver = 'local' } = {})
+{
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'block10-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const config = { storageDriver, uploadRoot: path.join(root, 'objects') };
+    const reopenObjectStore = () => createObjectStore(config);
+    const objectStore = reopenObjectStore();
+    const scratch = createScratch(path.join(root, 'scratch'));
+    await objectStore.ensureReady();
+    await scratch.initialize();
+
+    async function listObjectKeys(prefix = '')
+    {
+        const keys = [];
+        for await (const { key } of objectStore.list(prefix)) keys.push(key);
+        return keys.sort();
+    }
+
+    const readObject = key => objectStore.getBuffer(key);
+
+    async function objectExists(key)
+    {
+        try
+        {
+            const { body } = await objectStore.getStream(key);
+            body.destroy();
+            return true;
+        }
+        catch (error)
+        {
+            if (error.code === 'NOT_FOUND') return false;
+            throw error;
+        }
+    }
+
+    return { objectStore, scratch, listObjectKeys, readObject, objectExists, reopenObjectStore };
+}
+
 async function prepareTest(t, { faultInject } = {})
 {
     process.env.NODE_ENV = 'test';
-    const { databaseUrl } = loadConfig();
+    const { databaseUrl, storageDriver } = loadConfig({ storageDriver: process.env.STORAGE_DRIVER });
     requireTestDatabase(databaseUrl);
     const prisma = createDb(databaseUrl);
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'block10-'));
-    const storage = createStorage(root);
+    const stores = await prepareStorage(t, { storageDriver });
 
     async function resetDb()
     {
@@ -44,13 +82,11 @@ async function prepareTest(t, { faultInject } = {})
         finally
         {
             await prisma.$disconnect();
-            await fs.rm(root, { recursive: true, force: true });
         }
     });
 
-    await storage.initialize();
     await resetDb();
-    const app = createApp({ prisma, storage, faultInject });
+    const app = createApp({ prisma, ...stores, faultInject });
     const request = supertest(app);
 
     function uploadFiles(files, { alt = index => `Ảnh kiểm thử ${index}` } = {})
@@ -66,7 +102,7 @@ async function prepareTest(t, { faultInject } = {})
         return upload;
     }
 
-    return { prisma, storage, app, request, uploadFiles, resetDb };
+    return { prisma, ...stores, app, request, uploadFiles, resetDb };
 }
 
-module.exports = { prepareTest };
+module.exports = { prepareStorage, prepareTest };

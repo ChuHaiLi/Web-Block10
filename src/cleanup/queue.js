@@ -1,8 +1,15 @@
 const { randomBytes } = require('node:crypto');
 const fs = require('node:fs/promises');
 
-function createCleanupQueue(storage)
+function createCleanupQueue({ scratch, objectStore })
 {
+    async function deleteTarget(key)
+    {
+        if (key.startsWith('tmp/')) return scratch.deleteKey(key);
+        await objectStore.delete(key);
+        return true;
+    }
+
     async function enqueue(key, reason)
     {
         const record = { key, reason, at: new Date().toISOString() };
@@ -11,8 +18,8 @@ function createCleanupQueue(storage)
 
         try
         {
-            await storage.writeFile(temporary, JSON.stringify(record));
-            await fs.rename(storage.keyToPath(temporary), storage.keyToPath(name + '.json'));
+            await scratch.writeFile(temporary, JSON.stringify(record));
+            await fs.rename(scratch.keyToPath(temporary), scratch.keyToPath(name + '.json'));
             return true;
         }
         catch (error)
@@ -26,7 +33,7 @@ function createCleanupQueue(storage)
     {
         try
         {
-            await storage.deleteKey(key);
+            await deleteTarget(key);
             return true;
         }
         catch (error)
@@ -36,7 +43,7 @@ function createCleanupQueue(storage)
         }
     }
 
-    return { enqueue, deleteOrEnqueue };
+    return { enqueue, deleteTarget, deleteOrEnqueue };
 }
 
 module.exports = { createCleanupQueue };

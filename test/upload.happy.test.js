@@ -1,5 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs/promises');
 const { test } = require('node:test');
 const sharp = require('sharp');
 const { prepareTest } = require('./helpers');
@@ -11,7 +10,7 @@ for (const image of [
 {
     test('upload.happy ' + image.filename + ' lưu đủ file, metadata và hiển thị trên gallery', async t =>
     {
-        const { prisma, storage, request, uploadFiles } = await prepareTest(t);
+        const { prisma, scratch, readObject, request, uploadFiles } = await prepareTest(t);
         const uploadPage = await request.get('/upload').expect(200);
         assert.match(uploadPage.text, /name="photos"[^>]*multiple/);
         assert.match(uploadPage.text, /<textarea[^>]*required/);
@@ -47,7 +46,7 @@ for (const image of [
         assert.deepEqual([version.width, version.height], [image.width, image.height]);
         assert.deepEqual(version.edits, { rotate: 0, flipH: false, crop: null });
 
-        const original = await sharp(storage.keyToPath(photo.originalKey)).metadata();
+        const original = await sharp(await readObject(photo.originalKey)).metadata();
         assert.equal(original.format, 'png');
         assert.deepEqual([original.width, original.height], [image.width, image.height]);
         assert.deepEqual(photo.variants.map(variant => variant.width), image.variantWidths);
@@ -61,14 +60,14 @@ for (const image of [
             assert.equal(variant.photoId, photo.id);
             assert.equal(variant.version, 1);
             assert.equal(variant.height, Math.round(image.height * variant.width / image.width));
-            const file = storage.keyToPath(key);
-            assert.equal((await fs.stat(file)).size, variant.bytes);
+            const file = await readObject(key);
+            assert.equal(file.length, variant.bytes);
             const info = await sharp(file).metadata();
             assert.deepEqual([info.format, info.width, info.height], ['webp', variant.width, variant.height]);
             assert.deepEqual(result.photo.variants[index], { width: variant.width, height: variant.height, url: '/media/' + key });
         }
 
-        assert.deepEqual(await storage.listDir('tmp'), []);
+        assert.deepEqual(await scratch.listDir('tmp'), []);
         const gallery = await request.get('/').expect(200);
         const cover = photo.variants.findLast(variant => variant.width <= 960);
         assert.ok(gallery.text.includes('id="photo-' + photo.id + '"'));
@@ -80,7 +79,7 @@ for (const image of [
 
 test('upload.happy gửi JPEG và PNG trong cùng request', async t =>
 {
-    const { prisma, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, scratch, objectExists, uploadFiles } = await prepareTest(t);
     const response = await uploadFiles([
         { filename: 'photo.jpg', title: '  Ảnh thứ nhất  ', altText: 'JPEG trong album' },
         { filename: 'photo.png', title: '  Ảnh thứ hai  ', altText: 'PNG trong album' }
@@ -99,8 +98,8 @@ test('upload.happy gửi JPEG và PNG trong cùng request', async t =>
     assert.equal(await prisma.photoVariant.count(), 5);
     for (const photo of photos)
     {
-        await fs.access(storage.keyToPath(photo.originalKey));
-        for (const variant of photo.variants) await fs.access(storage.keyToPath(variant.storageKey));
+        assert.ok(await objectExists(photo.originalKey));
+        for (const variant of photo.variants) assert.ok(await objectExists(variant.storageKey));
     }
-    assert.deepEqual(await storage.listDir('tmp'), []);
+    assert.deepEqual(await scratch.listDir('tmp'), []);
 });

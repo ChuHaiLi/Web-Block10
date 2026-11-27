@@ -1,12 +1,12 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { originalKeyPattern, retryWindowsFs, unlinkIfPresent, removeEmptyDirectory } = require('../storage');
+const { retryWindowsFs, unlinkIfPresent } = require('../storage/filesystem');
+const { isObjectKey } = require('../storage/objectStore');
+const { createCleanupQueue } = require('./queue');
 const { purgePhoto } = require('./purgePhoto');
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
-const photoIdPattern = /^[A-Za-z0-9_-]{12}$/;
-const versionPattern = /^v\d+$/;
-const maxDatabaseVersion = 2_147_483_647;
+const BATCH_SIZE = 500;
 
 async function attempt(operation, location)
 {
@@ -30,21 +30,6 @@ async function removeFile(filePath)
 {
     const removed = await attempt(() => unlinkIfPresent(filePath), filePath);
     return removed ? 1 : 0;
-}
-
-async function removeVersion(directory)
-{
-    const entries = await listEntries(directory);
-    if (!entries) return 0;
-
-    let removed = 0;
-    for (const entry of entries)
-    {
-        const child = path.join(directory, entry.name);
-        removed += entry.isDirectory() ? await removeVersion(child) : await removeFile(child);
-    }
-    await attempt(() => removeEmptyDirectory(directory), directory);
-    return removed;
 }
 
 async function removeOldFiles(directory, cutoff, matches)
@@ -71,9 +56,10 @@ async function moveBadRecord(recordPath, error)
     if (renamed) console.error('Bản ghi dọn không hợp lệ ' + recordPath, error);
 }
 
-async function cleanQueue(storage, cutoff)
+async function cleanQueue(scratch, objectStore, cutoff)
 {
-    const directory = path.join(storage.root, 'cleanup-queue');
+    const directory = path.join(scratch.root, 'cleanup-queue');
+    const queue = createCleanupQueue({ scratch, objectStore });
     let queueFilesRemoved = 0;
     let queueRecordsRemoved = 0;
 
@@ -88,11 +74,8 @@ async function cleanQueue(storage, cutoff)
         try
         {
             key = JSON.parse(contents)?.key;
-            if (typeof key !== 'string' || !/^(?:photos|originals|tmp)\//.test(key))
-            {
-                throw new Error('Invalid cleanup target');
-            }
-            storage.keyToPath(key);
+            if (typeof key === 'string' && key.startsWith('tmp/')) scratch.keyToPath(key);
+            else if (!isObjectKey(key)) throw new Error('Invalid cleanup target');
         }
         catch (error)
         {
@@ -102,7 +85,7 @@ async function cleanQueue(storage, cutoff)
 
         try
         {
-            if (await storage.deleteKey(key)) queueFilesRemoved++;
+            if (await queue.deleteTarget(key)) queueFilesRemoved++;
         }
         catch (error)
         {
@@ -120,18 +103,18 @@ async function cleanQueue(storage, cutoff)
     return { queueFilesRemoved, queueRecordsRemoved, queueTemporaryFilesRemoved };
 }
 
-async function cleanDeletingPhotos(prisma, storage)
+async function cleanDeletingPhotos(prisma, objectStore)
 {
     const photos = await prisma.photo.findMany({ where: { status: 'DELETING' }, select: { id: true } });
     let removed = 0;
     for (const { id } of photos)
     {
-        removed += await attempt(() => purgePhoto({ prisma, storage, id }), id) ?? 0;
+        removed += await attempt(() => purgePhoto({ prisma, objectStore, id }), id) ?? 0;
     }
     return removed;
 }
 
-async function cleanSupersededVersions(prisma, storage, cutoff)
+async function cleanSupersededVersions(prisma, objectStore, cutoff)
 {
     const versions = await prisma.photoVersion.findMany({
         where: { supersededAt: { lt: cutoff }, purgedAt: null },
@@ -153,11 +136,11 @@ async function cleanSupersededVersions(prisma, storage, cutoff)
         {
             try
             {
-                if (await storage.deleteKey(storageKey)) removed++;
+                await objectStore.delete(storageKey);
+                removed++;
             }
             catch (error)
             {
-                if (error.code === 'ENOENT') continue;
                 failed = true;
                 console.error('Không xóa được variant hết hạn ' + storageKey, error);
             }
@@ -173,68 +156,95 @@ async function cleanSupersededVersions(prisma, storage, cutoff)
     return removed;
 }
 
-async function cleanOrphanVersions(prisma, storage, cutoff)
+async function deleteOrphan(objectStore, key)
 {
-    const directory = path.join(storage.root, 'photos');
-    let removed = 0;
-    for (const photoEntry of await listEntries(directory) ?? [])
+    try
     {
-        if (!photoEntry.isDirectory() || photoEntry.name.length !== 12 || !photoIdPattern.test(photoEntry.name)) continue;
-        const photoId = photoEntry.name;
-        const photoPath = path.join(directory, photoId);
-        for (const entry of await listEntries(photoPath) ?? [])
+        await objectStore.delete(key);
+        return 1;
+    }
+    catch (error)
+    {
+        console.error('Không xóa được object mồ côi ' + key, error);
+        return 0;
+    }
+}
+
+function* idBatches(ids)
+{
+    const unique = Array.from(new Set(ids));
+    for (let i = 0; i < unique.length; i += BATCH_SIZE) yield unique.slice(i, i + BATCH_SIZE);
+}
+
+async function cleanOrphanVersions(prisma, objectStore, cutoff)
+{
+    const groups = new Map();
+    for await (const { key, lastModified } of objectStore.list('photos/'))
+    {
+        const [, photoId, versionDir] = key.split('/');
+        const prefix = photoId + '/' + versionDir;
+        if (!groups.has(prefix))
         {
-            if (!entry.isDirectory() || entry.name !== entry.name.trim() || !versionPattern.test(entry.name)) continue;
-            const versionPath = path.join(photoPath, entry.name);
-            const stat = await attempt(() => fs.lstat(versionPath), versionPath);
-            if (!stat?.isDirectory() || stat.mtimeMs >= cutoff) continue;
+            groups.set(prefix, { photoId, version: Number(versionDir.slice(1)), keys: [], old: true });
+        }
+        const group = groups.get(prefix);
+        group.keys.push(key);
+        group.old &&= lastModified.getTime() < cutoff;
+    }
 
-            const version = Number(entry.name.slice(1));
-            const registered = version <= maxDatabaseVersion && await prisma.photoVersion.findUnique({
-                where: { photoId_version: { photoId, version } },
-                select: { version: true }
-            });
-            if (registered) continue;
+    const candidates = [...groups.values()].filter(group => group.old);
+    const registered = new Set();
+    for (const ids of idBatches(candidates.map(group => group.photoId)))
+    {
+        const versions = await prisma.photoVersion.findMany({
+            where: { photoId: { in: ids } },
+            select: { photoId: true, version: true }
+        });
+        for (const { photoId, version } of versions) registered.add(photoId + '/' + version);
+    }
 
-            removed += await removeVersion(versionPath);
-            await attempt(() => removeEmptyDirectory(photoPath), photoPath);
+    let removed = 0;
+    for (const { photoId, version, keys } of candidates)
+    {
+        if (registered.has(photoId + '/' + version)) continue;
+        for (const key of keys) removed += await deleteOrphan(objectStore, key);
+    }
+    return removed;
+}
+
+async function cleanOrphanOriginals(prisma, objectStore, cutoff)
+{
+    const candidates = new Map();
+    for await (const { key, lastModified } of objectStore.list('originals/'))
+    {
+        if (lastModified.getTime() < cutoff) candidates.set(key.slice('originals/'.length, -'.png'.length), key);
+    }
+
+    let removed = 0;
+    for (const ids of idBatches(candidates.keys()))
+    {
+        const photos = await prisma.photo.findMany({ where: { id: { in: ids } }, select: { id: true } });
+        const registered = new Set(photos.map(photo => photo.id));
+        for (const id of ids)
+        {
+            if (!registered.has(id)) removed += await deleteOrphan(objectStore, candidates.get(id));
         }
     }
     return removed;
 }
 
-async function cleanOrphanOriginals(prisma, storage, cutoff)
+async function runCleanup({ prisma, objectStore, scratch, versionRetentionHours = 24, now = Date.now() })
 {
-    const directory = path.join(storage.root, 'originals');
-    let removed = 0;
-    for (const entry of await listEntries(directory) ?? [])
-    {
-        const key = 'originals/' + entry.name;
-        if (!entry.isFile() || key !== key.trim() || !originalKeyPattern.test(key)) continue;
-        const filePath = storage.keyToPath(key);
-        const stat = await attempt(() => fs.lstat(filePath), filePath);
-        if (!stat?.isFile() || stat.mtimeMs >= cutoff) continue;
-
-        const id = path.basename(entry.name, '.png');
-        const registered = await prisma.photo.findUnique({ where: { id }, select: { id: true } });
-        if (!registered) removed += await removeFile(filePath);
-    }
-    return removed;
-}
-
-async function runCleanup({ prisma, storage, versionRetentionHours = 24 })
-{
-    const now = Date.now();
     const cutoff = now - ONE_HOUR_MS;
     const retentionCutoff = new Date(now - versionRetentionHours * ONE_HOUR_MS);
-    const queue = await cleanQueue(storage, cutoff);
+    const queue = await cleanQueue(scratch, objectStore, cutoff);
     const summary = {
         ...queue,
-        temporaryFilesRemoved: await removeOldFiles(path.join(storage.root, 'tmp'), cutoff, () => true),
-        deletedPhotoFilesRemoved: await cleanDeletingPhotos(prisma, storage),
-        supersededVersionFilesRemoved: await cleanSupersededVersions(prisma, storage, retentionCutoff),
-        orphanVersionFilesRemoved: await cleanOrphanVersions(prisma, storage, cutoff),
-        orphanOriginalFilesRemoved: await cleanOrphanOriginals(prisma, storage, cutoff)
+        temporaryFilesRemoved: await removeOldFiles(path.join(scratch.root, 'tmp'), cutoff, () => true),
+        deletedPhotoFilesRemoved: await cleanDeletingPhotos(prisma, objectStore),
+        supersededVersionFilesRemoved: await cleanSupersededVersions(prisma, objectStore, retentionCutoff),
+        orphanVersionFilesRemoved: await cleanOrphanVersions(prisma, objectStore, cutoff),
+        orphanOriginalFilesRemoved: await cleanOrphanOriginals(prisma, objectStore, cutoff)
     };
     console.log('Cleanup ' + JSON.stringify(summary));
     return summary;

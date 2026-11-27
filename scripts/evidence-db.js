@@ -1,7 +1,6 @@
-const fs = require('node:fs/promises');
-const path = require('node:path');
 const { loadConfig } = require('../src/config');
 const { createDb } = require('../src/db');
+const { createObjectStore } = require('../src/storage/objectStore');
 
 function getPhotoId(args)
 {
@@ -13,32 +12,24 @@ function getPhotoId(args)
     throw new Error('Cách dùng: npm run evidence:db [-- --photo <id>]');
 }
 
-async function listFiles(root, prefix = '', files = [])
+async function listObjects(objectStore, photoId)
 {
-    let entries;
-    try
+    const objects = [];
+    const prefixes = photoId
+        ? ['photos/' + photoId + '/', 'originals/' + photoId + '.png']
+        : ['photos/', 'originals/'];
+    for (const prefix of prefixes)
     {
-        entries = await fs.readdir(path.join(root, prefix), { withFileTypes: true });
+        for await (const object of objectStore.list(prefix)) objects.push(object);
     }
-    catch (error)
-    {
-        if (error.code === 'ENOENT') return files;
-        throw error;
-    }
-
-    for (const entry of entries)
-    {
-        const key = path.posix.join(prefix, entry.name);
-        if (entry.isDirectory()) await listFiles(root, key, files);
-        else if (entry.isFile()) files.push(key);
-    }
-    return files;
+    return objects.sort((a, b) => a.key.localeCompare(b.key));
 }
 
 async function evidence()
 {
     const photoId = getPhotoId(process.argv.slice(2));
     const config = loadConfig();
+    const objectStore = createObjectStore(config);
     const prisma = createDb(config.databaseUrl);
 
     try
@@ -55,9 +46,7 @@ async function evidence()
                 select: { photoId: true, version: true, width: true, height: true, bytes: true, storageKey: true }
             })
         ], { isolationLevel: 'RepeatableRead' });
-        const files = (await listFiles(config.uploadRoot)).sort();
-        const selected = photoId ? files.filter(key => key === 'originals/' + photoId + '.png' ||
-            key.startsWith('photos/' + photoId + '/')) : files;
+        const objects = await listObjects(objectStore, photoId);
 
         console.log('Photo');
         console.table(photos);
@@ -65,8 +54,9 @@ async function evidence()
         console.table(variants.map(({ photoId, version, width, height, bytes, storageKey }) => ({
             photoId, version, 'width×height': width + '×' + height, bytes, storageKey
         })));
-        console.log('File trong UPLOAD_ROOT');
-        console.log(selected.length ? selected.join('\n') : '(trống)');
+        console.log('Object store', objectStore.describe());
+        if (objects.length) console.table(objects.map(object => ({ ...object, lastModified: object.lastModified.toISOString() })));
+        else console.log('(trống)');
     }
     finally
     {

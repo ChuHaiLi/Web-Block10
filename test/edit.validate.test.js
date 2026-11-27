@@ -1,6 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs/promises');
-const path = require('node:path');
 const { test } = require('node:test');
 const sharp = require('sharp');
 const renderer = require('../src/edit/renderEdits');
@@ -40,7 +38,7 @@ test('edit.validate kiểm tra kiểu, biên crop sau xoay và baseVersion kể 
 
 test('edit.validate API trả 400 INVALID_EDITS và giữ nguyên ảnh khi payload sai', async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, scratch, uploadFiles } = await prepareTest(t);
     const { body } = await uploadFiles([{ filename: 'corners.png' }]).expect(200);
     assert.equal(body.results[0].ok, true);
     const { id } = body.results[0].photo;
@@ -62,7 +60,7 @@ test('edit.validate API trả 400 INVALID_EDITS và giữ nguyên ảnh khi payl
     assert.equal(stored.nextVersion, 2);
     assert.equal(stored.versions.length, 1);
     assert.equal(stored.versions[0].supersededAt, null);
-    assert.deepEqual(await storage.listDir('cleanup-queue'), []);
+    assert.deepEqual(await scratch.listDir('cleanup-queue'), []);
     await request.get('/photos/' + id).expect(200);
 });
 
@@ -92,7 +90,7 @@ test('edit.validate API và preview trả 404 cho ảnh thiếu hoặc không PU
 
 test('edit.validate variant quá cao trả 400 trước khi cấp version hoặc render', async t =>
 {
-    const { prisma, request, storage } = await prepareTest(t);
+    const { prisma, request, listObjectKeys } = await prepareTest(t);
     const png = await sharp({ create: { width: 20_000, height: 400, channels: 3, background: '#6495ed' } })
         .png().toBuffer();
     const { body } = await request.post('/api/uploads')
@@ -119,5 +117,5 @@ test('edit.validate variant quá cao trả 400 trước khi cấp version hoặc
     assert.equal(after.nextVersion, before.nextVersion);
     assert.equal(render.mock.callCount(), 0);
     assert.equal(await prisma.photoVersion.count({ where: { photoId: id } }), 1);
-    assert.deepEqual(await fs.readdir(path.join(storage.root, 'photos', id)), ['v1']);
+    assert.deepEqual(await listObjectKeys('photos/' + id + '/'), body.results[0].photo.variants.map(variant => variant.url.slice('/media/'.length)).sort());
 });

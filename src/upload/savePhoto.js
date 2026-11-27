@@ -2,14 +2,14 @@ const { newPhotoId } = require('../ids');
 const { uploadError } = require('./errors');
 const { processImage } = require('./processImage');
 
-async function savePhoto({ prisma, storage, queue, faultInject, file, title, alt })
+async function savePhoto({ prisma, scratch, objectStore, queue, faultInject, file, title, alt })
 {
     const id = newPhotoId();
     const writtenKeys = [];
 
     try
     {
-        const { variants, ...original } = await processImage(file, id, storage, writtenKeys);
+        const { variants, ...original } = await processImage(file, id, scratch, objectStore, writtenKeys);
         await prisma.$transaction(async tx =>
         {
             await tx.photo.create({ data: { id, title, alt, ...original } });

@@ -1,6 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs/promises');
-const path = require('node:path');
 const { test } = require('node:test');
 const { runCleanup } = require('../src/cleanup/runCleanup');
 const { prepareTest } = require('./helpers');
@@ -29,7 +27,7 @@ async function assertHidden(request, photo)
     }
 }
 
-async function assertPurged(prisma, storage, before)
+async function assertPurged(prisma, { scratch, listObjectKeys, objectExists }, before)
 {
     const after = await getPhoto(prisma, before.id);
     assert.equal(after.status, 'PURGED');
@@ -42,22 +40,22 @@ async function assertPurged(prisma, storage, before)
     {
         assert.deepEqual(version.purgedAt, after.purgedAt);
     }
-    await assert.rejects(fs.access(path.join(storage.root, 'photos', before.id)), { code: 'ENOENT' });
-    await assert.rejects(fs.access(storage.keyToPath(before.originalKey)), { code: 'ENOENT' });
-    assert.deepEqual(await storage.listDir('cleanup-queue'), []);
+    assert.deepEqual(await listObjectKeys('photos/' + before.id + '/'), []);
+    assert.equal(await objectExists(before.originalKey), false);
+    assert.deepEqual(await scratch.listDir('cleanup-queue'), []);
     return after;
 }
 
 test('delete ẩn ảnh, purge original và media của mọi version, gọi lại trả 404', async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, scratch, objectStore, listObjectKeys, objectExists, readObject, uploadFiles } = await prepareTest(t);
     const { id, url } = await uploadPhoto(uploadFiles, 'photo.png');
     const uploaded = await getPhoto(prisma, id);
     const secondVersion = [];
     for (const variant of uploaded.variants)
     {
         const storageKey = 'photos/' + id + '/v2/' + variant.width + '.webp';
-        await storage.writeFile(storageKey, await fs.readFile(storage.keyToPath(variant.storageKey)));
+        await objectStore.put(storageKey, await readObject(variant.storageKey), { contentType: 'image/webp' });
         secondVersion.push({
             photoId: id, version: 2, storageKey,
             width: variant.width, height: variant.height, mime: variant.mime, bytes: variant.bytes
@@ -84,7 +82,7 @@ test('delete ẩn ảnh, purge original và media của mọi version, gọi l�
     }
 
     await request.post(url + '/delete').expect('Location', '/').expect(303);
-    const purged = await assertPurged(prisma, storage, before);
+    const purged = await assertPurged(prisma, { scratch, listObjectKeys, objectExists }, before);
     await assertHidden(request, before);
     const repeated = await request.post(url + '/delete').expect(404);
     assert.match(repeated.text, /Không tìm thấy trang/);
@@ -95,23 +93,23 @@ test('delete ẩn ảnh, purge original và media của mọi version, gọi l�
 
 test('delete coi file thiếu là đã xóa và trả 404 cho id không tồn tại', async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, scratch, objectStore, listObjectKeys, objectExists, uploadFiles } = await prepareTest(t);
     const { id, url } = await uploadPhoto(uploadFiles, 'small.png');
     const before = await getPhoto(prisma, id);
-    await fs.unlink(storage.keyToPath(before.originalKey));
-    await fs.unlink(storage.keyToPath(before.variants[0].storageKey));
+    await objectStore.delete(before.originalKey);
+    await objectStore.delete(before.variants[0].storageKey);
 
     const missing = await request.post('/photos/aaaaaaaaaaaa/delete').expect(404);
     assert.match(missing.text, /Không tìm thấy trang/);
     assert.equal(await prisma.photo.count(), 1);
     await request.post(url + '/delete').expect('Location', '/').expect(303);
-    await assertPurged(prisma, storage, before);
+    await assertPurged(prisma, { scratch, listObjectKeys, objectExists }, before);
     await assertHidden(request, before);
 });
 
 test('delete ẩn ảnh trước khi xóa file, giữ DELETING nếu xóa lỗi rồi cleanup hoàn tất', { timeout: 10000 }, async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, scratch, objectStore, listObjectKeys, objectExists, uploadFiles } = await prepareTest(t);
     const { id, url } = await uploadPhoto(uploadFiles, 'photo.png');
     const before = await getPhoto(prisma, id);
     const blocked = before.variants[0].storageKey;
@@ -125,8 +123,8 @@ test('delete ẩn ảnh trước khi xóa file, giữ DELETING nếu xóa lỗi 
     {
         finishDelete = resolve;
     });
-    const remove = storage.deleteKey;
-    const deletion = t.mock.method(storage, 'deleteKey', async key =>
+    const remove = objectStore.delete;
+    const deletion = t.mock.method(objectStore, 'delete', async key =>
     {
         if (key === blocked)
         {
@@ -147,7 +145,7 @@ test('delete ẩn ảnh trước khi xóa file, giữ DELETING nếu xóa lỗi 
         assert.equal(record.status, 'DELETING');
         assert.ok(record.deletedAt instanceof Date);
         assert.equal(record.purgedAt, null);
-        await fs.access(storage.keyToPath(blocked));
+        assert.ok(await objectExists(blocked));
         await assertHidden(request, before);
         await request.post(url + '/delete').expect(404);
     }
@@ -161,30 +159,30 @@ test('delete ẩn ảnh trước khi xóa file, giữ DELETING nếu xóa lỗi 
     assert.equal(pending.status, 'DELETING');
     assert.equal(pending.purgedAt, null);
     assert.ok(pending.versions.every(version => version.purgedAt === null));
-    assert.deepEqual(await storage.listDir('cleanup-queue'), []);
+    assert.deepEqual(await scratch.listDir('cleanup-queue'), []);
     assert.equal(log.mock.callCount(), 1);
     assert.ok(log.mock.calls[0].arguments[0].includes(blocked));
-    await fs.access(storage.keyToPath(blocked));
+    assert.ok(await objectExists(blocked));
     for (const key of [before.originalKey, ...before.variants.map(variant => variant.storageKey)])
     {
-        if (key !== blocked) await assert.rejects(fs.access(storage.keyToPath(key)), { code: 'ENOENT' });
+        if (key !== blocked) assert.equal(await objectExists(key), false);
     }
 
     deletion.mock.restore();
-    const summary = await runCleanup({ prisma, storage });
-    assert.equal(summary.deletedPhotoFilesRemoved, 1);
-    const purged = await assertPurged(prisma, storage, before);
+    const summary = await runCleanup({ prisma, scratch, objectStore });
+    assert.equal(summary.deletedPhotoFilesRemoved, before.variants.length + 1);
+    const purged = await assertPurged(prisma, { scratch, listObjectKeys, objectExists }, before);
     assert.deepEqual(purged.deletedAt, pending.deletedAt);
     await assertHidden(request, before);
 
-    const repeat = await runCleanup({ prisma, storage });
+    const repeat = await runCleanup({ prisma, scratch, objectStore });
     assert.equal(repeat.deletedPhotoFilesRemoved, 0);
     assert.deepEqual((await getPhoto(prisma, id)).purgedAt, purged.purgedAt);
 });
 
 test('delete cleanup xử lý mọi ảnh DELETING khi hai lượt chạy đồng thời', async t =>
 {
-    const { prisma, request, storage, uploadFiles } = await prepareTest(t);
+    const { prisma, request, scratch, objectStore, listObjectKeys, objectExists, uploadFiles } = await prepareTest(t);
     const first = await uploadPhoto(uploadFiles, 'small.png');
     const second = await uploadPhoto(uploadFiles, 'small.png');
     const photos = await Promise.all([getPhoto(prisma, first.id), getPhoto(prisma, second.id)]);
@@ -194,30 +192,11 @@ test('delete cleanup xử lý mọi ảnh DELETING khi hai lượt chạy đồn
     });
     const log = t.mock.method(console, 'error', () => undefined);
 
-    await Promise.all([runCleanup({ prisma, storage }), runCleanup({ prisma, storage })]);
+    await Promise.all([runCleanup({ prisma, scratch, objectStore }), runCleanup({ prisma, scratch, objectStore })]);
     for (const photo of photos)
     {
-        await assertPurged(prisma, storage, photo);
+        await assertPurged(prisma, { scratch, listObjectKeys, objectExists }, photo);
         await assertHidden(request, photo);
     }
     assert.deepEqual(log.mock.calls.map(call => call.arguments), []);
-});
-
-test('delete Windows chỉ coi EPERM là đã xóa khi kiểm tra thấy file đã mất', { skip: process.platform !== 'win32' }, async t =>
-{
-    const { storage } = await prepareTest(t);
-    const existing = 'originals/aaaaaaaaaaaa.png';
-    const missing = 'originals/bbbbbbbbbbbb.png';
-    await storage.writeFile(existing, 'fixture');
-    const denied = Object.assign(new Error('EPERM giả lập'), { code: 'EPERM' });
-    const unlink = fs.unlink;
-    t.mock.method(fs, 'unlink', async filePath =>
-    {
-        if (filePath === storage.keyToPath(existing) || filePath === storage.keyToPath(missing)) throw denied;
-        return unlink(filePath);
-    });
-
-    assert.equal(await storage.deleteKey(missing), false);
-    await assert.rejects(storage.deleteKey(existing), { code: 'EPERM' });
-    await fs.access(storage.keyToPath(existing));
 });

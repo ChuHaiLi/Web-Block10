@@ -8,7 +8,7 @@ const MAX_FILES = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 55 * 1024 * 1024;
 
-async function parseMultipart(req, storage, queue)
+async function parseMultipart(req, scratch, queue)
 {
     if (!/^multipart\/form-data(?:\s*;|$)/i.test(req.headers['content-type'] ?? ''))
     {
@@ -88,7 +88,7 @@ async function parseMultipart(req, storage, queue)
 
         try
         {
-            const writer = fs.createWriteStream(storage.keyToPath(tmpKey), { flags: 'wx' });
+            const writer = fs.createWriteStream(scratch.keyToPath(tmpKey), { flags: 'wx' });
             const writing = finished(writer).catch(error => abort('STORAGE_ERROR', error));
             const entry = { writer, writing, tmpKey, opened: false };
             writers.push(entry);

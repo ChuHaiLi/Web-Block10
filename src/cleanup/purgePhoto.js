@@ -1,4 +1,4 @@
-async function purgePhoto({ prisma, storage, id })
+async function purgePhoto({ prisma, objectStore, id })
 {
     const photo = await prisma.photo.findUnique({
         where: { id, status: 'DELETING' },
@@ -13,11 +13,11 @@ async function purgePhoto({ prisma, storage, id })
     {
         try
         {
-            if (await storage.deleteKey(key)) filesRemoved++;
+            await objectStore.delete(key);
+            filesRemoved++;
         }
         catch (error)
         {
-            if (error.code === 'ENOENT') continue;
             failed = true;
             console.error('Không xóa được ' + key + ' của ảnh ' + id, error);
         }
