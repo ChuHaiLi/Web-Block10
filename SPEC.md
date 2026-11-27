@@ -4,6 +4,7 @@ Tài liệu thiết kế để triển khai. Yêu cầu gốc và bảng nghiệ
 Thứ tự làm: **phần cốt lõi (T0–T6) trước, bonus (T7–T9) sau.** Không bắt đầu task sau khi test của task trước chưa qua.
 **Cập nhật:** theo yêu cầu của giảng viên, ảnh chuyển sang object storage (SeaweedFS, S3 API). Xem **§15**. Mục đó thay thế các chỗ nói "local filesystem" ở §4, §7, §9.2 bước 5, §12, §13, và thêm task T12–T14.
 **Cập nhật:** nhóm thêm đăng nhập, chỉ người đăng nhập mới được upload, chỉ chủ ảnh được sửa/xóa. Xem **§16**, task T15–T17. **Thứ tự làm: T13 → T15 → T16 → T17 → T14.** Chụp toàn bộ bằng chứng một lượt sau T14.
+**Cập nhật:** nhóm thêm tính năng tải ảnh kiểu 4K Wallpapers (bản gốc + kích thước theo thiết bị). Xem **§17**, task T18–T19. **Thứ tự làm mới: T16 → T17 → T18 → T19 → T14.**
 
 ---
 
@@ -629,6 +630,8 @@ Mỗi task: code → test của task đó qua → chạy lại toàn bộ `npm t
 | T15 | Đăng nhập nền tảng (§16.2–16.5): bảng `User`, `Session`, cột `Photo.ownerId`, session store Prisma, kiểm tra Origin, đăng ký, đăng nhập, đăng xuất, header theo trạng thái đăng nhập | Test `auth.register`, `auth.login`, `auth.session`, `auth.origin`, `auth.redirect` qua |
 | T16 | Phân quyền (§16.6): upload cần đăng nhập, chỉ chủ ảnh được sửa/xóa, ẩn nút với người khác, `savePhoto` ghi `ownerId`; cập nhật test cũ để đăng nhập trước | Test `auth.access` qua; toàn bộ test cũ qua sau khi thêm bước đăng nhập |
 | T17 | Phần thêm (§16.7–16.9): tên người đăng, trang "Ảnh của tôi", khóa tạm khi đoán mật khẩu, đổi mật khẩu; `evidence:requests` tự đăng ký tài khoản; README, checklist mục 17–18 | Test `auth.lockout`, `auth.password`, `pages` (bổ sung) qua; (chưa chụp bằng chứng, chuyển sang T14) |
+| T18 | Tải ảnh, backend (§17.2–17.6): `presets.js`, `downloadKeyPattern`, route tải, tạo file khi tải lần đầu (semaphore, gộp request trùng, kiểm tra lại sau `put`), sửa `purgePhoto` / dọn version cũ / dọn mồ côi sang xóa theo prefix | Test `download.original`, `download.presets`, `download.cache`, `download.lifecycle` qua; toàn bộ test cũ qua |
+| T19 | Tải ảnh, giao diện (§17.7): nút "Tải bản gốc (W×H)", mục "Kích thước khác" có tab, bằng chứng mục 19 trong checklist | Test `pages` (bổ sung) qua; kiểm tra tay: khách tải được bản gốc và 1920×1080 của một ảnh 4K |
 
 ---
 
@@ -995,3 +998,124 @@ Quy tắc:
 | **18 (mới)** | `18-auth-ui.png`: gallery khi chưa đăng nhập (không có Upload), trang chi tiết khi là chủ ảnh (có Sửa/Xóa) và khi là người khác (không có), thông báo khóa tạm sau 5 lần sai |
 
 `evidence:requests` (mục 08–09, 17) tự đăng ký một tài khoản tên `evidence-<ngẫu nhiên>` và gửi kèm header `Origin`. README hướng dẫn tạo tài khoản và đăng nhập trước khi chụp các mục còn lại.
+
+---
+
+## 17. Tải ảnh (Download Original và More Resolutions)
+
+Yêu cầu thêm của nhóm, theo kiểu trang 4K Wallpapers: trang chi tiết có nút **"Tải bản gốc (W×H)"** và mục **"Kích thước khác"** liệt kê các kích thước màn hình chuẩn theo nhóm thiết bị.
+
+### 17.1 Quyết định đã chốt
+
+| Câu hỏi | Chốt |
+|---|---|
+| Ai được tải | **Mọi người, kể cả khách**. Ảnh vốn đã công khai |
+| "Bản gốc" là gì | **Bản đầy đủ của version đang hiển thị**: render từ PNG gốc đã chuẩn hóa cộng thông số chỉnh sửa của version đó. **Không** phải file người dùng upload (server không giữ file đó, và nó chứa EXIF/GPS) |
+| Định dạng | **JPEG chất lượng 90**, progressive. Ảnh có kênh alpha (nền trong suốt) → **PNG** |
+| Cách cắt khi tỉ lệ khác | **Cắt thông minh**: `fit: 'cover'` + `position: sharp.strategy.attention` (giữ vùng nổi bật) |
+| Nhóm kích thước | Desktop, Điện thoại, Tablet/iPad (§17.3) |
+| Khi nào tạo file | **Lần đầu có người tải**, rồi lưu vào bucket để lần sau gửi lại ngay. Không làm chậm upload hay chỉnh sửa |
+| Không làm | Tải file gốc đã upload, tải ZIP nhiều ảnh, nút tải trên gallery, chủ ảnh tắt quyền tải, đếm lượt tải |
+
+### 17.2 URL và storage key
+
+```
+GET /photos/:id/v/:version/download/original
+GET /photos/:id/v/:version/download/:W x :H        (vd /photos/aB3dE5fG7hJ9/v/2/download/1920x1080)
+```
+
+- **URL có số version.** Trang chi tiết luôn sinh link theo `currentVersion`. Chỉnh sửa xong thì link đổi theo, nên cache được lâu như media.
+- File đã tạo được lưu trong object store, cùng thư mục với variant của version đó:
+
+| File | Storage key |
+|---|---|
+| Bản gốc | `photos/<id>/v<n>/dl/original.jpg` (hoặc `.png`) |
+| Kích thước khác | `photos/<id>/v<n>/dl/<W>x<H>.jpg` (hoặc `.png`) |
+
+- Thêm `downloadKeyPattern = /^photos\/[A-Za-z0-9_-]{12}\/v\d+\/dl\/(original|\d+x\d+)\.(jpg|png)$/` vào `objectStore.js`. `isObjectKey` nhận cả ba pattern, nên `put`, `get`, `delete`, `list` dùng được. **Route `/media` không phục vụ các key `dl/`**: nó vẫn chỉ nhận `variantKeyPattern` như cũ.
+- Không thêm bảng hay cột DB. Kích thước có hợp lệ hay không được tính từ `PhotoVersion.width/height` và danh sách cố định §17.3.
+
+### 17.3 Danh sách kích thước (`src/download/presets.js`)
+
+| Nhóm | Kích thước (rộng × cao) |
+|---|---|
+| Desktop | 1366×768, 1920×1080, 1920×1200, 2560×1440, 2560×1600, 3440×1440, 3840×2160, 5120×2880 |
+| Điện thoại | 1080×1920, 1080×2400, 1170×2532, 1290×2796, 1440×3200 |
+| Tablet / iPad | 1620×2160, 1668×2388, 2048×2732, 2560×1600 |
+
+- Chỉ hiện và chỉ chấp nhận kích thước có **cả rộng ≤ W và cao ≤ H** của version (W×H = `PhotoVersion.width/height`). Không bao giờ phóng to. Ví dụ ảnh 2000×1333 chỉ có 1366×768 ở nhóm Desktop, không có gì ở hai nhóm kia.
+- Nhóm không còn kích thước nào → ẩn cả nhóm. Không còn kích thước nào ở mọi nhóm → ẩn mục "Kích thước khác", chỉ còn nút "Tải bản gốc".
+- `2560×1600` có mặt ở cả Desktop và Tablet: hai link trỏ cùng một URL, nên dùng chung một file đã lưu.
+
+### 17.4 Route tải (`src/routes/download.js`)
+
+Gắn **trước** session middleware, giống `/media`: ai cũng tải được nên không cần đọc session.
+
+1. Kiểm tra tham số: `version` là số nguyên dương; `size` là `original` hoặc khớp `^\d+x\d+$` và có trong §17.3. Sai → 404.
+2. Tra DB: `Photo` với `status = PUBLISHED`, và `PhotoVersion` có `version` này với `purgedAt IS NULL`. Không có → 404. Version cũ chưa bị dọn vẫn tải được, giống `/media`.
+3. Với kích thước khác: phải ≤ kích thước version (§17.3), sai → 404.
+4. Tính key. Thử `getStream(key)`:
+   - Có → stream về.
+   - `NOT_FOUND` → tạo file (§17.5), rồi stream file vừa tạo.
+5. Header:
+   - `Content-Type: image/jpeg` hoặc `image/png`
+   - `Content-Length`
+   - `Content-Disposition: attachment; filename="<tên ASCII>"; filename*=UTF-8''<tên UTF-8 đã encode>`
+   - `Cache-Control: public, max-age=31536000, immutable`
+   - `X-Content-Type-Options: nosniff`
+   - Nhánh lỗi không mang `Cache-Control` của ảnh (như §15.5).
+6. **Tên file**:
+   - Bản gốc: `<tên>-original-<W>x<H>.jpg`. Kích thước khác: `<tên>-<W>x<H>.jpg`.
+   - `<tên>` trong `filename=` là tiêu đề bỏ dấu tiếng Việt (`đ` → `d`, NFD rồi bỏ dấu), ký tự không phải chữ/số thành `-`, gộp `-` liên tiếp, tối đa 60 ký tự. Rỗng thì dùng `photo-<id>`.
+   - Trong `filename*=` giữ nguyên tiêu đề có dấu, bỏ ký tự điều khiển và `/ \ : * ? " < > |`.
+
+### 17.5 Tạo file (`src/download/renditions.js`)
+
+```
+original = getBuffer(photo.originalKey)
+image    = renderEdits(original, version.edits)          // dùng lại hàm của §10.4, cùng thứ tự xoay → lật → crop
+hasAlpha = (await image.metadata()).hasAlpha
+bản gốc:      image.jpeg({ quality: 90, progressive: true, mozjpeg: true })   (PNG nếu hasAlpha)
+kích thước:   image.resize({ width: W, height: H, fit: 'cover', position: sharp.strategy.attention })
+                   .jpeg(...)                                                 (PNG nếu hasAlpha)
+put(key, buffer, { contentType })
+```
+
+- Version 1 (chưa chỉnh sửa) dùng thông số `IDENTITY`, nên vẫn đi qua cùng hàm.
+- Không ghi metadata (sharp mặc định bỏ EXIF), nên file tải về **không có EXIF hay GPS**.
+- **Giới hạn đồng thời**: mỗi server chỉ render tối đa **2** file cùng lúc (semaphore trong tiến trình). Request khác chờ.
+- **Gộp request trùng**: hai request cùng một key đang được render dùng chung một promise, chỉ render một lần. Hai **server** khác nhau có thể cùng render một key; cả hai `put` cùng nội dung nên vô hại.
+- **Đua với xóa ảnh hay dọn version**: sau khi `put`, tra lại DB. Nếu ảnh không còn `PUBLISHED` hoặc version đã có `purgedAt` → `delete(key)` (lỗi thì `queue.enqueue`) và trả 404. Nhờ vậy không để lại file trong thư mục đã dọn.
+- Lỗi đọc PNG gốc, render hay `put` → 502 với driver `s3` (500 với `local`), không có header cache. Không để lại file dở: `put` lỗi thì không có object nào được tạo.
+
+### 17.6 Thay đổi phần dọn dẹp (bắt buộc)
+
+File `dl/` **không có dòng trong `PhotoVariant`**. Vì vậy:
+
+| Chỗ | Hiện tại | Đổi thành |
+|---|---|---|
+| `purgePhoto` (§9.1) | Xóa các key trong `PhotoVariant` + `originalKey` | Xóa **mọi object có prefix `photos/<id>/`** (dùng `list`) + `originalKey`. Vẫn chỉ đánh dấu `PURGED` khi không còn lỗi |
+| Dọn version cũ (§9.2 bước 4) | Xóa các key trong `PhotoVariant` của version | Xóa **mọi object có prefix `photos/<id>/v<n>/`** |
+| Dọn mồ côi (§9.2 bước 5) | Bỏ qua thư mục có dòng `PhotoVersion` | Thêm: object trong thư mục version **đã có `purgedAt`** hoặc thuộc ảnh `PURGED`, cũ hơn 1 giờ → xóa. Lưới an toàn cho ca §17.5 khi `delete` sau `put` cũng lỗi |
+
+### 17.7 Giao diện trang chi tiết
+
+- Ngay dưới thanh hành động: nút lớn **"⬇ Tải bản gốc (W×H)"** (`<a href="…/download/original" download>`), hiển thị cho **mọi người**.
+- Dưới ảnh: mục **"Kích thước khác"** với ba tab Desktop / Điện thoại / Tablet. Không có JS thì hiện cả ba nhóm, mỗi nhóm có tiêu đề. Có JS thì chỉ hiện nhóm đang chọn, các tab là `<button>` có `aria-selected`. Mỗi kích thước là một link `download` ghi `1920×1080`, kèm nhãn ngắn (vd "Full HD", "4K UHD") nếu có.
+- Chỉ dựa vào `currentVersion` để dựng link. Không đổi gì ở gallery, `srcset`, `sizes`: mục bằng chứng 06–07 không bị ảnh hưởng.
+
+### 17.8 Kiểm thử
+
+| Test | Kiểm tra |
+|---|---|
+| `download.original` | Khách tải được (không cần đăng nhập); `Content-Type: image/jpeg`; kích thước file đúng bằng `PhotoVersion.width/height`; không có EXIF (`sharp().metadata().exif` undefined); `Content-Disposition` có `filename` ASCII và `filename*` UTF-8 với tiêu đề tiếng Việt; PNG có alpha → tải về PNG |
+| `download.presets` | Ảnh 2000×1333 chỉ chấp nhận 1366×768; `1920x1080` với ảnh 3840×2160 → file đúng 1920×1080; kích thước lớn hơn ảnh, kích thước không có trong danh sách, `version` không phải số → 404; sau khi chỉnh sửa (crop) thì `v2` có danh sách kích thước theo kích thước mới |
+| `download.cache` | Lần tải thứ hai không render lại (đếm số lần gọi `renderEdits`); hai request đồng thời cùng kích thước chỉ render một lần; quá 2 kích thước khác nhau cùng lúc thì tối đa 2 render chạy song song |
+| `download.lifecycle` | Ảnh bị xóa → các file `dl/` biến mất khỏi bucket và URL tải trả 404; version cũ bị dọn sau thời hạn → file `dl/` của version đó biến mất; xóa ảnh **trong lúc đang render** (chặn render bằng promise trong test) → 404 và không còn object `dl/` nào; version cũ chưa bị dọn vẫn tải được |
+| `pages` (bổ sung) | Trang chi tiết có nút "Tải bản gốc" cho cả khách; chỉ liệt kê kích thước ≤ ảnh; nhóm rỗng bị ẩn |
+
+### 17.9 Bằng chứng
+
+| # | Nội dung |
+|---|---|
+| **19 (mới)** | `19-download.png`: trang chi tiết có nút tải bản gốc và mục kích thước khác (khi chưa đăng nhập). `19-download.txt`: header của `GET …/download/original` và `GET …/download/1920x1080` (`curl.exe -s -D - -o <file>`), kèm output `npm run evidence:exif` trên hai file tải về (đúng kích thước, không có EXIF/GPS), và danh sách object `dl/` trong bucket |
