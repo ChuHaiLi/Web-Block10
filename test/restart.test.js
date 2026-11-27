@@ -7,7 +7,7 @@ const { createApp } = require('../src/app');
 const { loadConfig } = require('../src/config');
 const { createDb } = require('../src/db');
 const { createScratch } = require('../src/storage/scratch');
-const { prepareTest, withOrigin } = require('./helpers');
+const { prepareTest, registerAndLogin } = require('./helpers');
 
 async function listen(app)
 {
@@ -33,7 +33,7 @@ test('restart tạo app mới với cùng DB và object store nhưng kho nháp m
 
     try
     {
-        const request = withOrigin(supertest(first));
+        const request = await registerAndLogin(first, { username: 'restart-uploader' });
         const { body } = await request.post('/api/uploads')
             .field('title_0', 'Ảnh giữ sau restart')
             .field('alt_0', 'Ảnh kiểm thử restart')

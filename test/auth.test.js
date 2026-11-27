@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const path = require('node:path');
 const { test } = require('node:test');
 const argon2 = require('argon2');
 const supertest = require('supertest');
@@ -28,7 +29,7 @@ function sessionCookie(response)
 
 test('auth.register chuẩn hóa tên và lưu hash Argon2id rồi đăng nhập ngay', async t =>
 {
-    const { prisma, request } = await prepareTest(t, { guestUploads: true });
+    const { prisma, request } = await prepareTest(t, { authenticated: false });
     await request.get('/register').expect('Cache-Control', noStore).expect(200);
     const registered = await postForm(request, '/register', registration('  Alice.VN  ')).expect('Location', '/').expect(303);
     const cookie = sessionCookie(registered);
@@ -61,7 +62,7 @@ test('auth.register chuẩn hóa tên và lưu hash Argon2id rồi đăng nhập
 
 test('auth.login đổi SID, dùng chung thông báo lỗi và chỉ POST mới đăng xuất', async t =>
 {
-    const { prisma, request } = await prepareTest(t, { guestUploads: true });
+    const { prisma, request } = await prepareTest(t, { authenticated: false });
     const registered = await postForm(request, '/register', registration('alice')).expect(303);
     const oldCookie = sessionCookie(registered);
     const oldSession = await prisma.session.findFirstOrThrow();
@@ -96,7 +97,7 @@ test('auth.login đổi SID, dùng chung thông báo lỗi và chỉ POST mới 
 
 test('auth.session cookie dùng chung giữa hai app, HTML private và media không tải session', async t =>
 {
-    const { prisma, request, objectStore, scratch, authOptions, uploadFiles } = await prepareTest(t, { guestUploads: true });
+    const { prisma, request, objectStore, scratch, authOptions } = await prepareTest(t, { authenticated: false });
     const publicPage = await request.get('/').expect('Cache-Control', noStore).expect(200);
     assert.equal(publicPage.headers['set-cookie'], undefined);
     assert.ok(publicPage.text.includes('href="/login"'));
@@ -131,10 +132,11 @@ test('auth.session cookie dùng chung giữa hai app, HTML private và media kh�
     const refreshed = await prisma.session.findUniqueOrThrow({ where: { sid: session.sid } });
     assert.ok(refreshed.expiresAt.getTime() > Date.now() + 6 * 24 * 60 * 60 * 1000);
 
-    const { body } = await uploadFiles([{ filename: 'small.png' }]).expect(200);
+    const { body } = await request.post('/api/uploads').set('Cookie', cookie)
+        .field('alt_0', 'Ảnh kiểm thử session').attach('photos', path.join(__dirname, 'fixtures', 'small.png')).expect(200);
     assert.equal(body.results[0].ok, true);
-    const photo = await prisma.photo.findUniqueOrThrow({ where: { id: body.results[0].photo.id }, include: { owner: true } });
-    assert.equal(photo.owner.username, '!guest-upload');
+    const photo = await prisma.photo.findUniqueOrThrow({ where: { id: body.results[0].photo.id } });
+    assert.equal(photo.ownerId, session.userId);
     const [{ url }] = body.results[0].photo.variants;
     const before = sessionReads;
     await second.get('/styles.css').set('Cookie', cookie).expect(200);
@@ -157,7 +159,7 @@ test('auth.session cookie dùng chung giữa hai app, HTML private và media kh�
 
 test('auth.origin yêu cầu Origin hoặc Referer cùng scheme, host và cổng cho request thay đổi dữ liệu', async t =>
 {
-    const { app, prisma } = await prepareTest(t, { guestUploads: true });
+    const { app, prisma } = await prepareTest(t, { authenticated: false });
     const request = supertest(app);
     for (const headers of [
         {},
@@ -182,7 +184,7 @@ test('auth.origin yêu cầu Origin hoặc Referer cùng scheme, host và cổng
 
 test('auth.redirect chỉ nhận next nội bộ ở đăng nhập và đăng ký', async t =>
 {
-    const { request } = await prepareTest(t, { guestUploads: true });
+    const { request } = await prepareTest(t, { authenticated: false });
     const form = await request.get('/register').query({ next: '/upload' }).expect(200);
     assert.ok(form.text.includes('name="next" value="/upload"'));
     await postForm(request, '/register', registration('redirect-user', { next: '/upload' })).expect('Location', '/upload').expect(303);

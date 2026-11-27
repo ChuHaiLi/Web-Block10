@@ -6,11 +6,10 @@ const http = require('node:http');
 const net = require('node:net');
 const path = require('node:path');
 const { test } = require('node:test');
-const supertest = require('supertest');
 const { createApp } = require('../src/app');
 const { loadConfig } = require('../src/config');
 const { createObjectStore } = require('../src/storage/objectStore');
-const { prepareTest, withOrigin } = require('./helpers');
+const { prepareTest, registerAndLogin } = require('./helpers');
 
 const s3 = {
     bucket: 'photo-gallery-test-down',
@@ -40,7 +39,7 @@ test('storage.s3-down upload rollback và media 502, không ghi object xuống �
 
     const { prisma, scratch, uploadFiles, authOptions } = await prepareTest(t);
     const objectStore = createObjectStore({ storageDriver: 's3', uploadRoot: scratch.root, s3: { ...s3, endpoint } });
-    const request = withOrigin(supertest(createApp({ prisma, scratch, objectStore, ...authOptions })));
+    const request = await registerAndLogin(createApp({ prisma, scratch, objectStore, ...authOptions }), { username: 'storage-down-user' });
     const log = t.mock.method(console, 'error', () => undefined);
 
     const upload = await request.post('/api/uploads').field('alt_0', 'S3 offline')

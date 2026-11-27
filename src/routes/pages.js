@@ -2,6 +2,7 @@ const express = require('express');
 const sharp = require('sharp');
 const { MAX_PIXELS } = require('../upload/validateImage');
 const { purgePhoto } = require('../cleanup/purgePhoto');
+const { redirectToLogin, isPhotoOwner, requirePhotoOwner } = require('../auth/access');
 
 const displayedVariants = {
     where: { photoVersion: { purgedAt: null } },
@@ -52,7 +53,7 @@ function createPagesRouter(prisma, objectStore)
             const photo = record && presentPhoto(record);
             if (!photo) return next();
 
-            res.render('layout', { title: photo.title, page: 'detail', photo });
+            res.render('layout', { title: photo.title, page: 'detail', photo, canManage: isPhotoOwner(req.user, photo) });
         }
         catch (error)
         {
@@ -60,15 +61,14 @@ function createPagesRouter(prisma, objectStore)
         }
     });
 
-    router.get('/photos/:id/edit', async (req, res, next) =>
+    const editPageAccess = requirePhotoOwner(prisma, {
+        select: { id: true, title: true, alt: true, originalWidth: true, originalHeight: true, currentVersion: true }
+    });
+    router.get('/photos/:id/edit', editPageAccess, async (req, res, next) =>
     {
         try
         {
-            const photo = await prisma.photo.findUnique({
-                where: { id: req.params.id, status: 'PUBLISHED' },
-                select: { id: true, title: true, alt: true, originalWidth: true, originalHeight: true, currentVersion: true }
-            });
-            if (!photo) return next();
+            const photo = req.photo;
 
             const version = await prisma.photoVersion.findUniqueOrThrow({
                 where: { photoId_version: { photoId: photo.id, version: photo.currentVersion } },
@@ -92,17 +92,12 @@ function createPagesRouter(prisma, objectStore)
         }
     });
 
-    router.get('/photos/:id/edit/source', async (req, res, next) =>
+    const editSourceAccess = requirePhotoOwner(prisma, { select: { originalKey: true } });
+    router.get('/photos/:id/edit/source', editSourceAccess, async (req, res, next) =>
     {
         try
         {
-            const photo = await prisma.photo.findUnique({
-                where: { id: req.params.id, status: 'PUBLISHED' },
-                select: { originalKey: true }
-            });
-            if (!photo) return next();
-
-            const original = await objectStore.getBuffer(photo.originalKey);
+            const original = await objectStore.getBuffer(req.photo.originalKey);
             const webp = await sharp(original, { limitInputPixels: MAX_PIXELS, failOn: 'warning' })
                 .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
                 .webp({ quality: 80 })
@@ -116,13 +111,13 @@ function createPagesRouter(prisma, objectStore)
         }
     });
 
-    router.post('/photos/:id/delete', async (req, res, next) =>
+    router.post('/photos/:id/delete', requirePhotoOwner(prisma), async (req, res, next) =>
     {
         const { id } = req.params;
         try
         {
             const updated = await prisma.photo.updateMany({
-                where: { id, status: 'PUBLISHED' },
+                where: { id, ownerId: req.user.id, status: 'PUBLISHED' },
                 data: { status: 'DELETING', deletedAt: new Date() }
             });
             if (updated.count === 0) return next();
@@ -138,6 +133,7 @@ function createPagesRouter(prisma, objectStore)
 
     router.get('/upload', (req, res) =>
     {
+        if (!req.user) return redirectToLogin(res, '/upload');
         res.render('layout', { title: 'Upload', page: 'upload' });
     });
 

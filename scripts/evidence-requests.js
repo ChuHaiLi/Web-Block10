@@ -1,4 +1,4 @@
-const { randomUUID } = require('node:crypto');
+const { randomBytes, randomUUID } = require('node:crypto');
 const fs = require('node:fs/promises');
 const http = require('node:http');
 const https = require('node:https');
@@ -41,7 +41,27 @@ function parseBody(text)
     }
 }
 
-async function sendFixtures(endpoint, names, missingAlt)
+async function registerEvidenceUser(endpoint)
+{
+    const username = 'evidence-' + randomBytes(6).toString('hex');
+    const password = randomBytes(24).toString('base64url');
+    const response = await fetch(new URL('/register', endpoint), {
+        method: 'POST',
+        headers: { Origin: endpoint.origin },
+        body: new URLSearchParams({ username, password, passwordConfirm: password }),
+        redirect: 'manual',
+        signal: AbortSignal.timeout(timeoutMs)
+    });
+    const cookie = response.headers.get('set-cookie')?.split(';', 1)[0];
+    await response.arrayBuffer();
+    if (response.status !== 303 || !cookie?.startsWith('gallery.sid='))
+    {
+        throw new Error('Đăng ký tài khoản evidence thất bại (HTTP ' + response.status + ')');
+    }
+    return cookie;
+}
+
+async function sendFixtures(endpoint, cookie, names, missingAlt)
 {
     const data = new FormData();
     for (const index of names.keys())
@@ -57,7 +77,7 @@ async function sendFixtures(endpoint, names, missingAlt)
 
     const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { Origin: endpoint.origin },
+        headers: { Origin: endpoint.origin, Cookie: cookie },
         body: data,
         redirect: 'error',
         signal: AbortSignal.timeout(timeoutMs)
@@ -79,7 +99,7 @@ function* oversizedMultipart(boundary)
     yield Buffer.from('\r\n--' + boundary + '--\r\n');
 }
 
-function sendChunked(endpoint)
+function sendChunked(endpoint, cookie)
 {
     const boundary = 'gallery-' + randomUUID();
     const body = Readable.from(oversizedMultipart(boundary));
@@ -92,6 +112,7 @@ function sendChunked(endpoint)
             method: 'POST',
             headers: {
                 Origin: endpoint.origin,
+                Cookie: cookie,
                 'Content-Type': 'multipart/form-data; boundary=' + boundary,
                 'Transfer-Encoding': 'chunked'
             },
@@ -126,9 +147,9 @@ function sendChunked(endpoint)
     });
 }
 
-async function writeMixedEvidence(prisma, endpoint, { filename, names, missingAlt, errorCodes })
+async function writeMixedEvidence(prisma, endpoint, cookie, { filename, names, missingAlt, errorCodes })
 {
-    const response = await sendFixtures(endpoint, names, missingAlt);
+    const response = await sendFixtures(endpoint, cookie, names, missingAlt);
     const results = response.body?.results;
     const matches = Array.isArray(results) && results.length === errorCodes.length &&
         results.every((result, index) => result?.index === index && result.filename === names[index] &&
@@ -165,21 +186,22 @@ async function main()
     try
     {
         await prisma.$connect();
+        const cookie = await registerEvidenceUser(endpoint);
         await fs.mkdir(evidence, { recursive: true });
-        await writeMixedEvidence(prisma, endpoint, {
+        await writeMixedEvidence(prisma, endpoint, cookie, {
             filename: '08a-invalid-files.json',
             names: ['photo.jpg', 'fake.jpg', 'truncated.jpg'],
             errorCodes: [null, 'NOT_IMAGE', 'CORRUPT']
         });
-        await writeMixedEvidence(prisma, endpoint, {
+        await writeMixedEvidence(prisma, endpoint, cookie, {
             filename: '08b-invalid-files.json',
             names: ['photo.png', 'over-10mib.png', 'too-many-pixels.png', 'small.png'],
             missingAlt: 3,
             errorCodes: [null, 'TOO_LARGE', 'TOO_MANY_PIXELS', 'ALT_REQUIRED']
         });
 
-        const tooMany = await captureLimit(prisma, '6 file hợp lệ', () => sendFixtures(endpoint, Array(6).fill('small.png')));
-        const oversized = await captureLimit(prisma, 'Chunked trên 55 MiB (1 file)', () => sendChunked(endpoint));
+        const tooMany = await captureLimit(prisma, '6 file hợp lệ', () => sendFixtures(endpoint, cookie, Array(6).fill('small.png')));
+        const oversized = await captureLimit(prisma, 'Chunked trên 55 MiB (1 file)', () => sendChunked(endpoint, cookie));
         const report = [tooMany, oversized].map(result => [
             result.label,
             'HTTP ' + result.status,

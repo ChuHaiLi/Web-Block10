@@ -5,7 +5,7 @@ const path = require('node:path');
 const { Readable } = require('node:stream');
 const { test } = require('node:test');
 const { setTimeout: delay } = require('node:timers/promises');
-const { prepareTest } = require('./helpers');
+const { prepareTest, gallerySessionCookie } = require('./helpers');
 
 const boundary = 'block10-request-test';
 const contentType = 'multipart/form-data; boundary=' + boundary;
@@ -153,9 +153,9 @@ test('upload.request từ chối vượt giới hạn trường và tổng số 
 
 test('upload.request từ chối Content-Length vượt 55 MiB trước khi nhận body', { timeout: 10000 }, async t =>
 {
-    const { app, prisma, scratch, listObjectKeys } = await prepareTest(t);
+    const { app, prisma, request, scratch, listObjectKeys } = await prepareTest(t);
     const port = await listen(t, app);
-    const response = await postRaw(port, { 'Content-Length': requestLimit + 1 });
+    const response = await postRaw(port, { 'Content-Length': requestLimit + 1, Cookie: await gallerySessionCookie(request) });
     assert.equal(response.status, 413);
     assert.equal(response.headers.connection, 'close');
     assert.equal(response.json.error.code, 'REQUEST_TOO_LARGE');
@@ -164,7 +164,7 @@ test('upload.request từ chối Content-Length vượt 55 MiB trước khi nh�
 
 test('upload.request dừng chunked vượt 55 MiB và dọn file đang ghi', { timeout: 10000 }, async t =>
 {
-    const { app, prisma, scratch, listObjectKeys } = await prepareTest(t);
+    const { app, prisma, request, scratch, listObjectKeys } = await prepareTest(t);
     const port = await listen(t, app);
     function* multipart()
     {
@@ -173,7 +173,8 @@ test('upload.request dừng chunked vượt 55 MiB và dọn file đang ghi', { 
         for (let index = 0; index < 56; index++) yield chunk;
         yield Buffer.from('\r\n' + partEnd);
     }
-    const response = await postRaw(port, { 'Transfer-Encoding': 'chunked' }, Readable.from(multipart()));
+    const response = await postRaw(port, { 'Transfer-Encoding': 'chunked', Cookie: await gallerySessionCookie(request) },
+        Readable.from(multipart()));
     assert.equal(response.status, 413);
     assert.equal(response.headers.connection, 'close');
     assert.equal(response.json.error.code, 'REQUEST_TOO_LARGE');
@@ -182,7 +183,8 @@ test('upload.request dừng chunked vượt 55 MiB và dọn file đang ghi', { 
 
 test('upload.request dọn mọi file tạm sau khi client ngắt giữa chừng', { timeout: 10000 }, async t =>
 {
-    const { app, prisma, scratch, listObjectKeys } = await prepareTest(t);
+    const { app, prisma, request, scratch, listObjectKeys } = await prepareTest(t);
+    const cookie = await gallerySessionCookie(request);
     let incoming;
     const port = await listen(t, (req, res) =>
     {
@@ -191,7 +193,7 @@ test('upload.request dọn mọi file tạm sau khi client ngắt giữa chừng
     });
     const client = http.request({
         host: '127.0.0.1', port, method: 'POST', path: '/api/uploads',
-        headers: { 'Content-Type': contentType, 'Transfer-Encoding': 'chunked', Origin: 'http://127.0.0.1:' + port }
+        headers: { 'Content-Type': contentType, 'Transfer-Encoding': 'chunked', Origin: 'http://127.0.0.1:' + port, Cookie: cookie }
     });
     client.on('error', () => {});
     t.after(() => client.destroy());

@@ -119,7 +119,7 @@ curl.exe -s -D - -o NUL "http://localhost:3000/media/photos/<id>/v1/960.webp"
 
 ### Bằng chứng 08 và 09 về kiểm tra request
 
-Chạy `npm run fixtures` và khởi động server với `FAULT_INJECT` để trống. Dùng cùng cấu hình DB cho server và terminal chạy lệnh sau.
+Chạy `npm run fixtures` và khởi động server với `FAULT_INJECT` để trống. Dùng cùng cấu hình DB cho server và terminal chạy lệnh sau. Script tự đăng ký một tài khoản `evidence-<ngẫu nhiên>` để gửi các request đã đăng nhập.
 
 ```sh
 npm run evidence:requests -- --base http://localhost:3000

@@ -1,12 +1,11 @@
 const { newId } = require('../ids');
-const { dummyPasswordHash } = require('../auth/login');
 const { uploadError } = require('./errors');
 const { processImage } = require('./processImage');
 
-const guestOwner = { id: 'guest-upload', username: '!guest-upload', passwordHash: dummyPasswordHash };
-
 async function savePhoto({ prisma, scratch, objectStore, queue, faultInject, file, title, alt, ownerId })
 {
+    if (!ownerId) throw new TypeError('ownerId is required');
+
     const id = newId();
     const writtenKeys = [];
 
@@ -15,9 +14,7 @@ async function savePhoto({ prisma, scratch, objectStore, queue, faultInject, fil
         const { variants, ...original } = await processImage(file, id, scratch, objectStore, writtenKeys);
         await prisma.$transaction(async tx =>
         {
-            // Guest uploads stay available until T16. The reserved owner cannot sign in.
-            if (!ownerId) await tx.user.createMany({ data: guestOwner, skipDuplicates: true });
-            await tx.photo.create({ data: { id, ownerId: ownerId ?? guestOwner.id, title, alt, ...original } });
+            await tx.photo.create({ data: { id, ownerId, title, alt, ...original } });
             await tx.photoVersion.create({
                 data: {
                     photoId: id,

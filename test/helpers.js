@@ -132,7 +132,15 @@ async function registerAndLogin(app, { username = 'test-user' } = {})
     return agent;
 }
 
-async function prepareTest(t, { faultInject, guestUploads = false } = {})
+async function gallerySessionCookie(agent)
+{
+    const page = await agent.get('/').expect(200);
+    const cookie = page.headers['set-cookie']?.find(value => value.startsWith('gallery.sid='));
+    if (!cookie) throw new Error('Authenticated agent did not receive a gallery session cookie');
+    return cookie.split(';', 1)[0];
+}
+
+async function prepareTest(t, { faultInject, authenticated = true } = {})
 {
     process.env.NODE_ENV = 'test';
     const { databaseUrl, storageDriver, sessionSecret, cookieSecure } = loadConfig({ storageDriver: process.env.STORAGE_DRIVER });
@@ -167,12 +175,12 @@ async function prepareTest(t, { faultInject, guestUploads = false } = {})
     await resetDb();
     const authOptions = { sessionSecret, cookieSecure };
     const app = createApp({ prisma, ...stores, faultInject, ...authOptions });
-    const request = withOrigin(supertest(app));
-    const uploader = guestUploads ? request : await registerAndLogin(app);
+    const guest = withOrigin(supertest(app));
+    const request = authenticated ? await registerAndLogin(app) : guest;
 
     function uploadFiles(files, { alt = index => `Ảnh kiểm thử ${index}` } = {})
     {
-        const upload = uploader.post('/api/uploads');
+        const upload = request.post('/api/uploads');
         files.forEach(({ title, altText }, index) =>
         {
             if (title !== undefined) upload.field(`title_${index}`, title);
@@ -183,7 +191,7 @@ async function prepareTest(t, { faultInject, guestUploads = false } = {})
         return upload;
     }
 
-    return { prisma, ...stores, app, request, authOptions, uploadFiles, resetDb };
+    return { prisma, ...stores, app, request, guest, authOptions, uploadFiles, resetDb };
 }
 
-module.exports = { prepareStorage, prepareTest, registerAndLogin, withOrigin, testHost, testPassword };
+module.exports = { prepareStorage, prepareTest, registerAndLogin, gallerySessionCookie, withOrigin, testHost, testPassword };

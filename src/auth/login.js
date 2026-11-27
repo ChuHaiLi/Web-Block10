@@ -36,4 +36,4 @@ function safeNext(value)
     return value;
 }
 
-module.exports = { normalizeLogin, validLogin, passwordLength, verifyLogin, safeNext, dummyPasswordHash };
+module.exports = { normalizeLogin, validLogin, passwordLength, verifyLogin, safeNext };

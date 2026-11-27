@@ -6,6 +6,7 @@ const { editError } = require('../edit/errors');
 const { saveVersion } = require('../edit/saveVersion');
 const { parseMultipart } = require('../upload/parseMultipart');
 const { savePhoto } = require('../upload/savePhoto');
+const { unauthenticated, requirePhotoOwner } = require('../auth/access');
 
 const requestStatuses = {
     NOT_MULTIPART: 400,
@@ -101,6 +102,8 @@ function createApiRouter(prisma, objectStore, scratch)
     const queue = createCleanupQueue({ objectStore, scratch });
     router.post('/uploads', async (req, res, next) =>
     {
+        if (!req.user) return sendRequestError(req, res, 401, { ...unauthenticated, drainRequest: true });
+
         let parsed;
         try
         {
@@ -128,7 +131,7 @@ function createApiRouter(prisma, objectStore, scratch)
         {
             for (const file of files)
             {
-                results.push(await uploadPhoto({ prisma, scratch, objectStore, queue, faultInject, file, fields, ownerId: req.user?.id }));
+                results.push(await uploadPhoto({ prisma, scratch, objectStore, queue, faultInject, file, fields, ownerId: req.user.id }));
                 if (await queue.deleteOrEnqueue(file.tmpKey, 'upload-temp')) remaining.delete(file.tmpKey);
             }
         }
@@ -144,7 +147,7 @@ function createApiRouter(prisma, objectStore, scratch)
         res.json({ results });
     });
 
-    router.post('/photos/:id/edits', express.json(), editJsonError, async (req, res) =>
+    router.post('/photos/:id/edits', requirePhotoOwner(prisma, { api: true }), express.json(), editJsonError, async (req, res) =>
     {
         try
         {
