@@ -7,16 +7,16 @@ Thứ tự làm: **phần cốt lõi (T0–T6) trước, bonus (T7–T9) sau.** 
 
 ## 1. Stack
 
-| Lớp | Chọn | Ghi chú |
-|---|---|---|
-| Runtime | Node.js ≥ 20, CommonJS | Dùng `node:test`, `node --watch` |
-| Web | Express 4 + EJS | SSR, cùng kiểu Block9_SSR |
-| Multipart | `busboy` 1.6 (dùng trực tiếp) | Không dùng multer: multer hủy cả request khi một file quá cỡ |
-| Ảnh | `sharp` (≥ 0.33) | Xoay theo EXIF, bỏ metadata, PNG/WebP, `limitInputPixels`, `failOn` |
-| DB | PostgreSQL + Prisma 5 | `prisma migrate dev` |
-| Config | `dotenv` | |
-| Test | `node:test` + `supertest` | DB test riêng, `UPLOAD_ROOT` tạm riêng cho mỗi lần chạy |
-| Frontend | EJS + CSS + JS thuần | Form upload gửi `fetch` + `FormData`; trang edit dùng `<canvas>` |
+| Lớp | Chọn | Ghi chú | Lý do chọn |
+|---|---|---|---|
+| Runtime | Node.js ≥ 20, CommonJS | Dùng `node:test`, `node --watch` | Cùng nền với các block trước nên không phải học lại. Node 20 có sẵn test runner, `fetch`, `FormData` và chế độ watch, giảm số thư viện phải cài. |
+| Web | Express 4 + EJS | SSR, cùng kiểu Block9_SSR | Đã quen từ Block9_SSR. Render phía server giúp HTML gallery có sẵn `srcset`, `sizes`, `width`, `height`, `alt` ngay trong response, nên dễ kiểm bằng test và chụp DOM làm bằng chứng. Không cần dựng thêm SPA và bước build. |
+| Multipart | `busboy` 1.6 (dùng trực tiếp) | Không dùng multer: multer hủy cả request khi một file quá cỡ | Đề yêu cầu từ chối riêng file vượt 10 MiB nhưng vẫn lưu các file hợp lệ khác. Busboy báo `truncated` cho từng file và cho tự đếm bytes của cả request (để trả 413 khi vượt 55 MiB), xử lý ngắt kết nối và dọn file tạm theo ý mình. |
+| Ảnh | `sharp` (≥ 0.33) | Xoay theo EXIF, bỏ metadata, PNG/WebP, `limitInputPixels`, `failOn` | Một thư viện làm đủ các bước đề yêu cầu: đọc kích thước từ header trước khi giải mã, giới hạn số pixel, báo lỗi ảnh thiếu bytes, xoay pixel theo EXIF rồi bỏ toàn bộ EXIF (gồm GPS), xuất WebP. Dùng libvips nên nhanh và tốn ít RAM. |
+| DB | PostgreSQL + Prisma 5 | `prisma migrate dev` | Đã có sẵn cài đặt và kinh nghiệm từ các block trước. Transaction của PostgreSQL cùng câu `UPDATE` có điều kiện đủ để xử lý hai lần lưu chỉnh sửa đồng thời. Prisma cho schema rõ ràng và migration lặp lại được trên DB dev lẫn DB test. |
+| Config | `dotenv` | | Tách cấu hình (DB, thư mục lưu ảnh) khỏi code và khỏi git. Dùng hai file `.env` và `.env.test` để dev và test không dùng chung DB hay thư mục ảnh. Có `.env.example` làm cấu hình mẫu để nộp. |
+| Test | `node:test` + `supertest` | DB test riêng, `UPLOAD_ROOT` tạm riêng cho mỗi lần chạy | `node:test` có sẵn trong Node, không thêm phụ thuộc. `supertest` gửi request thật vào app mà không cần mở cổng, phù hợp với yêu cầu nghiệm thu qua request thật và trạng thái lưu. |
+| Frontend | EJS + CSS + JS thuần | Form upload gửi `fetch` + `FormData`; trang edit dùng `<canvas>` | Giao diện ít màn hình nên không cần framework. `fetch` + `FormData` là đúng cách slide 8 hướng dẫn và cho hiển thị kết quả theo từng file. `<canvas>` đủ để xem trước xoay, lật, crop với cùng thứ tự như server. |
 
 ID ngẫu nhiên: `crypto.randomBytes(9).toString('base64url')` → 12 ký tự `[A-Za-z0-9_-]`. Không cần thêm thư viện.
 
