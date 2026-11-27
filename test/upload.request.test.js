@@ -51,7 +51,7 @@ function postRaw(port, headers, body)
     {
         const client = http.request({
             host: '127.0.0.1', port, method: 'POST', path: '/api/uploads',
-            headers: { 'Content-Type': contentType, ...headers }
+            headers: { 'Content-Type': contentType, Origin: 'http://127.0.0.1:' + port, ...headers }
         }, res =>
         {
             body?.destroy();
@@ -191,7 +191,7 @@ test('upload.request dọn mọi file tạm sau khi client ngắt giữa chừng
     });
     const client = http.request({
         host: '127.0.0.1', port, method: 'POST', path: '/api/uploads',
-        headers: { 'Content-Type': contentType, 'Transfer-Encoding': 'chunked' }
+        headers: { 'Content-Type': contentType, 'Transfer-Encoding': 'chunked', Origin: 'http://127.0.0.1:' + port }
     });
     client.on('error', () => {});
     t.after(() => client.destroy());
@@ -229,10 +229,10 @@ test('upload.request trả 500 và dọn cả file tạm đã ghi trước lỗi
 
 test('createApp cho phép đặt FAULT_INJECT riêng cho app test', async t =>
 {
-    const { app, prisma, scratch, objectStore } = await prepareTest(t, { faultInject: 'db-after-write' });
+    const { app, prisma, scratch, objectStore, authOptions } = await prepareTest(t, { faultInject: 'db-after-write' });
     const { createApp } = require('../src/app');
-    const secondApp = createApp({ prisma, scratch, objectStore, faultInject: 'edit-db-after-write' });
+    const secondApp = createApp({ prisma, scratch, objectStore, ...authOptions, faultInject: 'edit-db-after-write' });
     assert.equal(app.get('faultInject'), 'db-after-write');
     assert.equal(secondApp.get('faultInject'), 'edit-db-after-write');
-    assert.equal(createApp({ prisma, scratch, objectStore }).get('faultInject'), '');
+    assert.equal(createApp({ prisma, scratch, objectStore, ...authOptions }).get('faultInject'), '');
 });

@@ -33,13 +33,13 @@ function getMetadata(fields, { index, filename })
     return { title: title || fallback || 'Ảnh không tên', alt };
 }
 
-async function uploadPhoto(prisma, scratch, objectStore, queue, faultInject, file, fields)
+async function uploadPhoto({ prisma, scratch, objectStore, queue, faultInject, file, fields, ownerId })
 {
     const { index, filename } = file;
     try
     {
         const metadata = getMetadata(fields, file);
-        const { id, title, variants } = await savePhoto({ prisma, scratch, objectStore, queue, faultInject, file, ...metadata });
+        const { id, title, variants } = await savePhoto({ prisma, scratch, objectStore, queue, faultInject, file, ownerId, ...metadata });
         return {
             index,
             filename,
@@ -128,7 +128,7 @@ function createApiRouter(prisma, objectStore, scratch)
         {
             for (const file of files)
             {
-                results.push(await uploadPhoto(prisma, scratch, objectStore, queue, faultInject, file, fields));
+                results.push(await uploadPhoto({ prisma, scratch, objectStore, queue, faultInject, file, fields, ownerId: req.user?.id }));
                 if (await queue.deleteOrEnqueue(file.tmpKey, 'upload-temp')) remaining.delete(file.tmpKey);
             }
         }

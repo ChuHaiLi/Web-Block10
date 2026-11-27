@@ -112,10 +112,30 @@ async function prepareStorage(t, { storageDriver = 'local' } = {})
     return { objectStore, scratch, listObjectKeys, readObject, objectExists, reopenObjectStore };
 }
 
-async function prepareTest(t, { faultInject } = {})
+const testHost = 'gallery.test';
+const testPassword = 'test-password-47';
+
+function withOrigin(request)
+{
+    for (const method of ['post', 'put', 'patch', 'delete', 'options'])
+    {
+        const send = request[method].bind(request);
+        request[method] = (...args) => send(...args).set('Host', testHost).set('Origin', 'http://' + testHost);
+    }
+    return request;
+}
+
+async function registerAndLogin(app, { username = 'test-user' } = {})
+{
+    const agent = withOrigin(supertest.agent(app));
+    await agent.post('/register').type('form').send({ username, password: testPassword, passwordConfirm: testPassword }).expect(303);
+    return agent;
+}
+
+async function prepareTest(t, { faultInject, guestUploads = false } = {})
 {
     process.env.NODE_ENV = 'test';
-    const { databaseUrl, storageDriver } = loadConfig({ storageDriver: process.env.STORAGE_DRIVER });
+    const { databaseUrl, storageDriver, sessionSecret, cookieSecure } = loadConfig({ storageDriver: process.env.STORAGE_DRIVER });
     requireTestDatabase(databaseUrl);
     const prisma = createDb(databaseUrl);
     const stores = await prepareStorage(t, { storageDriver });
@@ -126,7 +146,9 @@ async function prepareTest(t, { faultInject } = {})
         await prisma.$transaction([
             prisma.photoVariant.deleteMany(),
             prisma.photoVersion.deleteMany(),
-            prisma.photo.deleteMany()
+            prisma.photo.deleteMany(),
+            prisma.session.deleteMany(),
+            prisma.user.deleteMany()
         ]);
     }
 
@@ -143,12 +165,14 @@ async function prepareTest(t, { faultInject } = {})
     });
 
     await resetDb();
-    const app = createApp({ prisma, ...stores, faultInject });
-    const request = supertest(app);
+    const authOptions = { sessionSecret, cookieSecure };
+    const app = createApp({ prisma, ...stores, faultInject, ...authOptions });
+    const request = withOrigin(supertest(app));
+    const uploader = guestUploads ? request : await registerAndLogin(app);
 
     function uploadFiles(files, { alt = index => `Ảnh kiểm thử ${index}` } = {})
     {
-        const upload = request.post('/api/uploads');
+        const upload = uploader.post('/api/uploads');
         files.forEach(({ title, altText }, index) =>
         {
             if (title !== undefined) upload.field(`title_${index}`, title);
@@ -159,7 +183,7 @@ async function prepareTest(t, { faultInject } = {})
         return upload;
     }
 
-    return { prisma, ...stores, app, request, uploadFiles, resetDb };
+    return { prisma, ...stores, app, request, authOptions, uploadFiles, resetDb };
 }
 
-module.exports = { prepareStorage, prepareTest };
+module.exports = { prepareStorage, prepareTest, registerAndLogin, withOrigin, testHost, testPassword };

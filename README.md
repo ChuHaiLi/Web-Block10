@@ -12,6 +12,10 @@ npm i
 
 Tạo `.env` và `.env.test` từ `.env.example` khi chưa có hai file cục bộ. Điền `DATABASE_URL` cho từng DB. Tên DB test phải chứa `test`, ví dụ `photo_gallery_test`. Đặt `UPLOAD_ROOT` riêng cho test, mặc định là `../gallery-uploads-test`. Dev mặc định dùng `../gallery-uploads`. Đường dẫn tương đối được tính từ thư mục gốc dự án.
 
+Đặt `SESSION_SECRET` riêng cho từng file môi trường. Có thể tạo giá trị bằng `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Các web server cùng môi trường cần dùng chung secret để đọc cùng cookie. Đặt `COOKIE_SECURE=false` khi chạy HTTP cục bộ và `true` khi chạy HTTPS.
+
+**Nâng cấp DB dev từ trước T15** cần chạy `npx prisma migrate reset` vì migration mới yêu cầu mọi ảnh có chủ sở hữu. Lệnh này xóa toàn bộ dữ liệu trong DB dev. Hãy kiểm tra `DATABASE_URL` và sao lưu dữ liệu cần giữ trước khi chạy.
+
 **Thêm `STORAGE_DRIVER=s3` và đủ các biến `S3_*` từ `.env.example` vào cả `.env` lẫn `.env.test`, kể cả khi hai file đã có sẵn.** Tạo `seaweedfs/s3.json` từ `seaweedfs/s3.example.json`, rồi điền `S3_ACCESS_KEY_ID` và `S3_SECRET_ACCESS_KEY` khớp với file JSON vào cả hai file môi trường. Dùng `S3_BUCKET=photo-gallery` trong `.env` và `S3_BUCKET=photo-gallery-test` trong `.env.test`.
 
 Docker Compose ghim SeaweedFS **4.55**, với S3 API ở `http://localhost:8333` và giao diện filer ở `http://localhost:8888`. [Cờ khởi động SeaweedFS 4.55](https://github.com/seaweedfs/seaweedfs/blob/4.55/weed/command/server.go) · [Định dạng cấu hình S3](https://github.com/seaweedfs/seaweedfs/blob/4.55/weed/command/s3.go)
@@ -147,6 +151,6 @@ npm run evidence:requests -- --base http://localhost:3000
 
 ## Ngoài phạm vi
 
-Đăng nhập, phân quyền người dùng, CSRF và CDN nằm ngoài phạm vi bài. Người truy cập có thể upload và xóa ảnh qua giao diện. Chỉnh sửa ảnh là phần bonus.
+Quên mật khẩu, xác minh email, đăng nhập bên thứ ba, 2FA, vai trò admin, xóa tài khoản và CDN nằm ngoài phạm vi bài. Chỉnh sửa ảnh là phần bonus.
 
 [Thiết kế và tiêu chí kiểm thử](SPEC.md) · [Yêu cầu bài tập](REQUIREMENTS.md)

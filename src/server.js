@@ -50,7 +50,10 @@ async function start()
         await scratch.initialize();
         await prisma.$connect();
         await cleanup();
-        const app = createApp({ prisma, objectStore, scratch, faultInject: config.faultInject });
+        const app = createApp({
+            prisma, objectStore, scratch, faultInject: config.faultInject,
+            sessionSecret: config.sessionSecret, cookieSecure: config.cookieSecure
+        });
         const server = app.listen(config.port, () =>
         {
             const store = objectStore.describe();

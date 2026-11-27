@@ -57,6 +57,7 @@ async function sendFixtures(endpoint, names, missingAlt)
 
     const response = await fetch(endpoint, {
         method: 'POST',
+        headers: { Origin: endpoint.origin },
         body: data,
         redirect: 'error',
         signal: AbortSignal.timeout(timeoutMs)
@@ -90,6 +91,7 @@ function sendChunked(endpoint)
         const request = transport.request(endpoint, {
             method: 'POST',
             headers: {
+                Origin: endpoint.origin,
                 'Content-Type': 'multipart/form-data; boundary=' + boundary,
                 'Transfer-Encoding': 'chunked'
             },

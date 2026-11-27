@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const { loadConfig } = require('../src/config');
 
 const databaseUrl = 'postgresql://localhost/photo_gallery_test';
+const sessionSecret = 'fake-session-secret-for-config-tests';
 const s3Env = {
     STORAGE_DRIVER: 's3',
     S3_ENDPOINT: 'http://localhost:8333',
@@ -19,7 +20,7 @@ test('config từ chối UPLOAD_ROOT test resolve trùng thư mục dev trong .e
 {
     const env = {
         '.env': { UPLOAD_ROOT: '../custom-dev-uploads' },
-        '.env.test': { DATABASE_URL: databaseUrl, UPLOAD_ROOT: '../custom-dev-uploads/../custom-dev-uploads/.' }
+        '.env.test': { DATABASE_URL: databaseUrl, SESSION_SECRET: sessionSecret, UPLOAD_ROOT: '../custom-dev-uploads/../custom-dev-uploads/.' }
     };
     t.mock.method(dotenv, 'config', ({ path: filename }) => ({ parsed: env[path.basename(filename)] }));
 
@@ -28,7 +29,7 @@ test('config từ chối UPLOAD_ROOT test resolve trùng thư mục dev trong .e
 
 test('config mặc định dùng gallery-uploads-test khi .env.test thiếu UPLOAD_ROOT', t =>
 {
-    const env = { '.env': {}, '.env.test': { DATABASE_URL: databaseUrl } };
+    const env = { '.env': {}, '.env.test': { DATABASE_URL: databaseUrl, SESSION_SECRET: sessionSecret } };
     t.mock.method(dotenv, 'config', ({ path: filename }) => ({ parsed: env[path.basename(filename)] }));
 
     const config = loadConfig({ nodeEnv: 'test' });
@@ -41,7 +42,7 @@ test('config từ chối STORAGE_DRIVER sai và cho phép test chọn driver rõ
 {
     const env = {
         '.env': {},
-        '.env.test': { DATABASE_URL: databaseUrl, ...s3Env }
+        '.env.test': { DATABASE_URL: databaseUrl, SESSION_SECRET: sessionSecret, ...s3Env }
     };
     t.mock.method(dotenv, 'config', ({ path: filename }) => ({ parsed: env[path.basename(filename)] }));
     assert.equal(loadConfig({ nodeEnv: 'test' }).storageDriver, 's3');
@@ -52,7 +53,7 @@ test('config từ chối STORAGE_DRIVER sai và cho phép test chọn driver rõ
 
 test('config kiểm tra biến S3 và giữ riêng bucket test', t =>
 {
-    const fileEnv = { DATABASE_URL: databaseUrl, ...s3Env };
+    const fileEnv = { DATABASE_URL: databaseUrl, SESSION_SECRET: sessionSecret, ...s3Env };
     const devEnv = { S3_BUCKET: 'photo-gallery' };
     t.mock.method(dotenv, 'config', ({ path: filename }) => ({
         parsed: path.basename(filename) === '.env.test' ? fileEnv : devEnv
@@ -86,4 +87,25 @@ test('config kiểm tra biến S3 và giữ riêng bucket test', t =>
     devEnv.S3_BUCKET = 'photo-gallery';
     fileEnv.S3_ENDPOINT = 'http://fake-user:fake-password@localhost:8333';
     assert.throws(load, { message: 'S3_ENDPOINT phải là URL HTTP hoặc HTTPS không chứa thông tin xác thực, query hay fragment' });
+});
+
+test('config yêu cầu SESSION_SECRET riêng và kiểm tra COOKIE_SECURE', t =>
+{
+    const fileEnv = { DATABASE_URL: databaseUrl };
+    t.mock.method(dotenv, 'config', ({ path: filename }) => ({
+        parsed: path.basename(filename) === '.env.test' ? fileEnv : { SESSION_SECRET: 'separate-dev-secret-for-config-tests' }
+    }));
+    const load = () => loadConfig({ nodeEnv: 'test' });
+    for (const invalid of [undefined, 'a'.repeat(31), 'replace-with-at-least-32-random-characters'])
+    {
+        fileEnv.SESSION_SECRET = invalid;
+        assert.throws(load, /SESSION_SECRET trong \.env\.test/);
+    }
+    fileEnv.SESSION_SECRET = sessionSecret;
+    assert.equal(load().sessionSecret, sessionSecret);
+    assert.equal(load().cookieSecure, false);
+    fileEnv.COOKIE_SECURE = 'true';
+    assert.equal(load().cookieSecure, true);
+    fileEnv.COOKIE_SECURE = 'maybe';
+    assert.throws(load, /COOKIE_SECURE/);
 });

@@ -13,23 +13,50 @@ enum PhotoStatus {
   PURGED
 }
 
+model User {
+  id                String    @id
+  username          String    @unique @db.VarChar(30)
+  passwordHash      String
+  failedLoginCount  Int       @default(0)
+  lockedUntil       DateTime?
+  passwordChangedAt DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  photos            Photo[]
+  sessions          Session[]
+}
+
+model Session {
+  sid       String   @id
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 model Photo {
-  id              String         @id
-  title           String         @db.VarChar(120)
-  alt             String         @db.VarChar(250)
-  originalKey     String         @unique
-  originalWidth   Int
-  originalHeight  Int
-  status          PhotoStatus    @default(PUBLISHED)
-  currentVersion  Int            @default(1)
-  nextVersion     Int            @default(2)
-  createdAt       DateTime       @default(now())
-  deletedAt       DateTime?
-  purgedAt        DateTime?
-  versions        PhotoVersion[]
-  variants        PhotoVariant[]
+  id             String         @id
+  ownerId        String
+  owner          User           @relation(fields: [ownerId], references: [id])
+  title          String         @db.VarChar(120)
+  alt            String         @db.VarChar(250)
+  originalKey    String         @unique
+  originalWidth  Int
+  originalHeight Int
+  status         PhotoStatus    @default(PUBLISHED)
+  currentVersion Int            @default(1)
+  nextVersion    Int            @default(2)
+  createdAt      DateTime       @default(now())
+  deletedAt      DateTime?
+  purgedAt       DateTime?
+  versions       PhotoVersion[]
+  variants       PhotoVariant[]
 
   @@index([status, createdAt])
+  @@index([ownerId, status, createdAt])
 }
 
 model PhotoVersion {

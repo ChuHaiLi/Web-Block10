@@ -10,7 +10,7 @@ const supertest = require('supertest');
 const { createApp } = require('../src/app');
 const { loadConfig } = require('../src/config');
 const { createObjectStore } = require('../src/storage/objectStore');
-const { prepareTest } = require('./helpers');
+const { prepareTest, withOrigin } = require('./helpers');
 
 const s3 = {
     bucket: 'photo-gallery-test-down',
@@ -38,9 +38,9 @@ test('storage.s3-down upload rollback và media 502, không ghi object xuống �
     const endpoint = await listen(reservation);
     await close(reservation);
 
-    const { prisma, scratch, uploadFiles } = await prepareTest(t);
+    const { prisma, scratch, uploadFiles, authOptions } = await prepareTest(t);
     const objectStore = createObjectStore({ storageDriver: 's3', uploadRoot: scratch.root, s3: { ...s3, endpoint } });
-    const request = supertest(createApp({ prisma, scratch, objectStore }));
+    const request = withOrigin(supertest(createApp({ prisma, scratch, objectStore, ...authOptions })));
     const log = t.mock.method(console, 'error', () => undefined);
 
     const upload = await request.post('/api/uploads').field('alt_0', 'S3 offline')
@@ -72,6 +72,7 @@ test('storage.s3-down upload rollback và media 502, không ghi object xuống �
             ...process.env,
             NODE_ENV: 'development',
             DATABASE_URL: loadConfig({ nodeEnv: 'test', storageDriver: 'local' }).databaseUrl,
+            SESSION_SECRET: authOptions.sessionSecret,
             PORT: '0',
             UPLOAD_ROOT: scratch.root,
             STORAGE_DRIVER: 's3',

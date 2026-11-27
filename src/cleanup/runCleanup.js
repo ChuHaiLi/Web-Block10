@@ -244,7 +244,8 @@ async function runCleanup({ prisma, objectStore, scratch, versionRetentionHours 
         deletedPhotoFilesRemoved: await cleanDeletingPhotos(prisma, objectStore),
         supersededVersionFilesRemoved: await cleanSupersededVersions(prisma, objectStore, retentionCutoff),
         orphanVersionFilesRemoved: await cleanOrphanVersions(prisma, objectStore, cutoff),
-        orphanOriginalFilesRemoved: await cleanOrphanOriginals(prisma, objectStore, cutoff)
+        orphanOriginalFilesRemoved: await cleanOrphanOriginals(prisma, objectStore, cutoff),
+        expiredSessionsRemoved: (await prisma.session.deleteMany({ where: { expiresAt: { lt: new Date(now) } } })).count
     };
     console.log('Cleanup ' + JSON.stringify(summary));
     return summary;

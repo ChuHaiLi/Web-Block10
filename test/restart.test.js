@@ -7,7 +7,7 @@ const { createApp } = require('../src/app');
 const { loadConfig } = require('../src/config');
 const { createDb } = require('../src/db');
 const { createScratch } = require('../src/storage/scratch');
-const { prepareTest } = require('./helpers');
+const { prepareTest, withOrigin } = require('./helpers');
 
 async function listen(app)
 {
@@ -26,14 +26,14 @@ function close(server)
 
 test('restart tạo app mới với cùng DB và object store nhưng kho nháp mới, gallery và media vẫn 200', async t =>
 {
-    const { app, prisma, scratch, objectStore, reopenObjectStore } = await prepareTest(t);
+    const { app, prisma, scratch, objectStore, reopenObjectStore, authOptions } = await prepareTest(t);
     const first = await listen(app);
     let photo;
     let savedMedia;
 
     try
     {
-        const request = supertest(first);
+        const request = withOrigin(supertest(first));
         const { body } = await request.post('/api/uploads')
             .field('title_0', 'Ảnh giữ sau restart')
             .field('alt_0', 'Ảnh kiểm thử restart')
@@ -61,7 +61,7 @@ test('restart tạo app mới với cùng DB và object store nhưng kho nháp m
     assert.notEqual(restartedStore, objectStore);
     assert.deepEqual(restartedStore.describe(), objectStore.describe());
     const restartedApp = createApp({
-        prisma: restartedPrisma, objectStore: restartedStore, scratch: restartedScratch
+        prisma: restartedPrisma, objectStore: restartedStore, scratch: restartedScratch, ...authOptions
     });
     assert.notEqual(restartedApp, app);
     const second = await listen(restartedApp);

@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const { finished } = require('node:stream/promises');
 const busboy = require('busboy');
-const { newPhotoId } = require('../ids');
+const { newId } = require('../ids');
 const { uploadError } = require('./errors');
 
 const MAX_FILES = 5;
@@ -33,7 +33,7 @@ async function parseMultipart(req, scratch, queue)
         throw uploadError('MALFORMED', error);
     }
 
-    const uploadId = newPhotoId();
+    const uploadId = newId();
     const fields = new Map();
     const files = [];
     const writers = [];

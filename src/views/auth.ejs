@@ -1,0 +1,18 @@
+<h1><%= title %></h1>
+<form class="auth-form" method="post" action="<%= action %>">
+    <input type="hidden" name="next" value="<%= nextPath %>">
+    <% if (error) { %>
+        <p class="auth-error" role="alert"><%= error %></p>
+    <% } %>
+    <label for="username">Tên đăng nhập</label>
+    <input id="username" name="username" value="<%= username %>" autocomplete="username" required>
+
+    <label for="password">Mật khẩu</label>
+    <input id="password" name="password" type="password" maxlength="128"
+           autocomplete="<%= registering ? 'new-password' : 'current-password' %>" required>
+    <% if (registering) { %>
+        <label for="password-confirm">Nhập lại mật khẩu</label>
+        <input id="password-confirm" name="passwordConfirm" type="password" maxlength="128" autocomplete="new-password" required>
+    <% } %>
+    <button type="submit"><%= title %></button>
+</form>

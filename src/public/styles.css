@@ -39,10 +39,11 @@ main, .site-header
 {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
 }
 
-.site-header nav a
+.site-header nav :is(a, button)
 {
     display: inline-flex;
     align-items: center;
@@ -54,7 +55,23 @@ main, .site-header
     text-decoration: none;
 }
 
-.site-header nav a:hover
+.site-header nav button
+{
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+}
+
+.site-user
+{
+    padding-inline: 0.75rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.site-header nav :is(a, button):hover
 {
     background: #eef3f6;
     text-decoration: underline;
@@ -78,19 +95,19 @@ a
     outline-offset: 3px;
 }
 
-.upload-form
+.upload-form, .auth-form
 {
     display: grid;
     gap: 0.5rem;
     max-width: 32rem;
 }
 
-.upload-form label:not(:first-child)
+.upload-form label:not(:first-child), .auth-form label:not(:first-of-type)
 {
     margin-top: 0.5rem;
 }
 
-.upload-form :is(input, textarea, button)
+.upload-form :is(input, textarea, button), .auth-form :is(input, button)
 {
     box-sizing: border-box;
     max-width: 100%;
@@ -98,7 +115,7 @@ a
     font: inherit;
 }
 
-.upload-form button
+.upload-form button, .auth-form button
 {
     justify-self: start;
     padding-inline: 1rem;
@@ -113,6 +130,22 @@ a
 {
     opacity: 0.6;
     cursor: wait;
+}
+
+.auth-form
+{
+    max-width: 24rem;
+}
+
+.auth-form button
+{
+    margin-top: 0.5rem;
+}
+
+.auth-error
+{
+    margin: 0;
+    color: #892614;
 }
 
 .upload-files, .upload-file-fields

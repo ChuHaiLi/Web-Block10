@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const appRoot = path.resolve(__dirname, '..');
 const defaultDevRoot = '../gallery-uploads';
 const defaultTestRoot = '../gallery-uploads-test';
+const exampleSessionSecret = 'replace-with-at-least-32-random-characters';
 const requiredS3Variables = [
     'S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'S3_FORCE_PATH_STYLE'
 ];
@@ -91,8 +92,18 @@ function loadConfig({ nodeEnv = process.env.NODE_ENV, uploadRoot, storageDriver 
         throw new Error(`DATABASE_URL is missing from ${envFile}`);
     }
 
+    const sessionSecret = env.SESSION_SECRET?.trim();
+    if (!sessionSecret || sessionSecret === exampleSessionSecret || Array.from(sessionSecret).length < 32)
+    {
+        throw new Error(`SESSION_SECRET trong ${envFile} phải là secret riêng có ít nhất 32 ký tự`);
+    }
+    const cookieSecure = env.COOKIE_SECURE || 'false';
+    if (!['true', 'false'].includes(cookieSecure)) throw new Error('COOKIE_SECURE phải là true hoặc false');
+
     return {
         databaseUrl: env.DATABASE_URL,
+        sessionSecret,
+        cookieSecure: cookieSecure === 'true',
         port: Number(env.PORT || 3000),
         uploadRoot: root,
         storageDriver: driver,
