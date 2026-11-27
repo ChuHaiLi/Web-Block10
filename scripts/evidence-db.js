@@ -48,13 +48,14 @@ async function evidence()
         ], { isolationLevel: 'RepeatableRead' });
         const objects = await listObjects(objectStore, photoId);
 
+        console.log('Object store', objectStore.describe());
         console.log('Photo');
         console.table(photos);
         console.log('PhotoVariant');
         console.table(variants.map(({ photoId, version, width, height, bytes, storageKey }) => ({
             photoId, version, 'width×height': width + '×' + height, bytes, storageKey
         })));
-        console.log('Object store', objectStore.describe());
+        console.log('Object trong kho' + (photoId ? ' (ảnh ' + photoId + ')' : ''));
         if (objects.length) console.table(objects.map(object => ({ ...object, lastModified: object.lastModified.toISOString() })));
         else console.log('(trống)');
     }

@@ -12,21 +12,27 @@ const fixtures = path.join(root, 'test', 'fixtures');
 const evidence = path.join(root, 'evidence');
 const timeoutMs = 30_000;
 
-function getEndpoint(args)
+const usage = 'Cách dùng: npm run evidence:requests -- --base http://localhost:3000 [--out <thư mục>]';
+
+function getOptions(args)
 {
     try
     {
-        if (args.length === 2 && args[0] === '--base')
+        const [flag, base, ...rest] = args;
+        if (flag === '--base' && base && (rest.length === 0 || (rest.length === 2 && rest[0] === '--out' && rest[1])))
         {
-            const endpoint = new URL('/api/uploads', args[1]);
-            if (['http:', 'https:'].includes(endpoint.protocol)) return endpoint;
+            const endpoint = new URL('/api/uploads', base);
+            if (['http:', 'https:'].includes(endpoint.protocol))
+            {
+                return { endpoint, outDir: rest.length ? path.resolve(rest[1]) : evidence };
+            }
         }
     }
     catch
     {
         // Invalid URLs use the same usage message as missing arguments.
     }
-    throw new Error('Cách dùng: npm run evidence:requests -- --base http://localhost:3000');
+    throw new Error(usage);
 }
 
 function parseBody(text)
@@ -147,7 +153,7 @@ function sendChunked(endpoint, cookie)
     });
 }
 
-async function writeMixedEvidence(prisma, endpoint, cookie, { filename, names, missingAlt, errorCodes })
+async function writeMixedEvidence(prisma, endpoint, cookie, outDir, { filename, names, missingAlt, errorCodes })
 {
     const response = await sendFixtures(endpoint, cookie, names, missingAlt);
     const results = response.body?.results;
@@ -166,12 +172,12 @@ async function writeMixedEvidence(prisma, endpoint, cookie, { filename, names, m
         throw new Error('DB của lệnh evidence không thấy ảnh vừa upload. Hãy dùng cùng cấu hình DB với server.');
     }
 
-    await fs.writeFile(path.join(evidence, filename), JSON.stringify(response.body, null, 2) + '\n');
+    await fs.writeFile(path.join(outDir, filename), JSON.stringify(response.body, null, 2) + '\n');
     console.log(filename + ' HTTP ' + response.status + ' Photo ' + ids.join(', '));
     return results.find(result => result.ok).photo;
 }
 
-async function writeAccessEvidence(endpoint, photo)
+async function writeAccessEvidence(endpoint, photo, outDir)
 {
     const otherCookie = await registerEvidenceUser(endpoint);
     const guestUpload = await sendFixtures(endpoint, null, ['small.png']);
@@ -201,13 +207,13 @@ async function writeAccessEvidence(endpoint, photo)
         'Khách GET / → HTTP ' + gallery.status + ' · ảnh ' + photo.id + ' hiển thị: ' + (showsPhoto ? 'có' : 'không'),
         'Khách GET ' + mediaUrl + ' → HTTP ' + media.status
     ].join('\n');
-    await fs.writeFile(path.join(evidence, '17-auth-access.txt'), report + '\n');
+    await fs.writeFile(path.join(outDir, '17-auth-access.txt'), report + '\n');
     console.log('17-auth-access.txt\n' + report);
     if (guestUpload.status !== 401 || uploadCode !== 'UNAUTHENTICATED' ||
         uploadPage.status !== 303 || loginLocation !== '/login?next=/upload' ||
         otherDelete.status !== 403 || gallery.status !== 200 || !showsPhoto || media.status !== 200)
     {
-        throw new Error('Quyền truy cập ngoài dự kiến. Xem evidence/17-auth-access.txt.');
+        throw new Error('Quyền truy cập ngoài dự kiến. Xem ' + path.join(outDir, '17-auth-access.txt') + '.');
     }
 }
 
@@ -221,20 +227,20 @@ async function captureLimit(prisma, label, send)
 
 async function main()
 {
-    const endpoint = getEndpoint(process.argv.slice(2));
+    const { endpoint, outDir } = getOptions(process.argv.slice(2));
     const { databaseUrl } = loadConfig();
     const prisma = createDb(databaseUrl);
     try
     {
         await prisma.$connect();
         const cookie = await registerEvidenceUser(endpoint);
-        await fs.mkdir(evidence, { recursive: true });
-        const photo = await writeMixedEvidence(prisma, endpoint, cookie, {
+        await fs.mkdir(outDir, { recursive: true });
+        const photo = await writeMixedEvidence(prisma, endpoint, cookie, outDir, {
             filename: '08a-invalid-files.json',
             names: ['photo.jpg', 'fake.jpg', 'truncated.jpg'],
             errorCodes: [null, 'NOT_IMAGE', 'CORRUPT']
         });
-        await writeMixedEvidence(prisma, endpoint, cookie, {
+        await writeMixedEvidence(prisma, endpoint, cookie, outDir, {
             filename: '08b-invalid-files.json',
             names: ['photo.png', 'over-10mib.png', 'too-many-pixels.png', 'small.png'],
             missingAlt: 3,
@@ -251,15 +257,15 @@ async function main()
             'Body',
             JSON.stringify(result.body, null, 2)
         ].join('\n')).join('\n\n');
-        await fs.writeFile(path.join(evidence, '09-request-limits.txt'), report + '\n');
+        await fs.writeFile(path.join(outDir, '09-request-limits.txt'), report + '\n');
         console.log('09-request-limits.txt\n' + report);
 
         if (tooMany.status !== 400 || tooMany.body?.error?.code !== 'TOO_MANY_FILES' || tooMany.before !== tooMany.after ||
             oversized.status !== 413 || oversized.body?.error?.code !== 'REQUEST_TOO_LARGE' || oversized.before !== oversized.after)
         {
-            throw new Error('Giới hạn request hoặc số Photo ngoài dự kiến. Xem evidence/09-request-limits.txt.');
+            throw new Error('Giới hạn request hoặc số Photo ngoài dự kiến. Xem ' + path.join(outDir, '09-request-limits.txt') + '.');
         }
-        await writeAccessEvidence(endpoint, photo);
+        await writeAccessEvidence(endpoint, photo, outDir);
     }
     finally
     {

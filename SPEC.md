@@ -568,8 +568,8 @@ Kiểm tra thủ công bằng browser (ghi lại để làm bằng chứng):
 
 | Cấu hình | Độ rộng ô ảnh (CSS px) | Kỳ vọng |
 |---|---|---|
-| Gallery, viewport 300 px, DPR 1 | ≈ 300 | `320.webp` |
-| Gallery, viewport 1400 px, DPR 1 | ≈ 462 | `960.webp` |
+| Gallery, viewport 300 px, DPR 1 | ≈ 268 (lề 16 px mỗi bên; `sizes` tính `100vw` = 300) | `320.webp` |
+| Gallery, viewport 1400 px, DPR 1 | ≈ 410 (sau giao diện mới §18; trước đó ≈ 462) | `960.webp` |
 | Trang chi tiết, viewport 1400 px, DPR 1 | ≈ 1400 | `1600.webp` (trước giao diện mới §18) |
 | Trang chi tiết, viewport 1400 px, **DPR 2** (sau §18) | ≈ 916 (cần ≈ 1832 điểm ảnh) | `1600.webp` |
 
