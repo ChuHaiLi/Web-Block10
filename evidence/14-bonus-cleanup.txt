@@ -1,0 +1,84 @@
+﻿photoId: TbNk5xsSuw5V
+== TRƯỚC CLEANUP (version v1 đã bị thay thế bởi v2)
+Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery'
+}
+Photo
+┌─────────┬────────────────┬─────────┬─────────────┬────────────────┐
+│ (index) │ id             │ title   │ status      │ currentVersion │
+├─────────┼────────────────┼─────────┼─────────────┼────────────────┤
+│ 0       │ 'TbNk5xsSuw5V' │ 'photo' │ 'PUBLISHED' │ 2              │
+└─────────┴────────────────┴─────────┴─────────────┴────────────────┘
+PhotoVariant
+┌─────────┬────────────────┬─────────┬──────────────┬───────┬────────────────────────────────────┐
+│ (index) │ photoId        │ version │ width×height │ bytes │ storageKey                         │
+├─────────┼────────────────┼─────────┼──────────────┼───────┼────────────────────────────────────┤
+│ 0       │ 'TbNk5xsSuw5V' │ 1       │ '320×213'    │ 1486  │ 'photos/TbNk5xsSuw5V/v1/320.webp'  │
+│ 1       │ 'TbNk5xsSuw5V' │ 1       │ '960×640'    │ 5166  │ 'photos/TbNk5xsSuw5V/v1/960.webp'  │
+│ 2       │ 'TbNk5xsSuw5V' │ 1       │ '1600×1066'  │ 10236 │ 'photos/TbNk5xsSuw5V/v1/1600.webp' │
+│ 3       │ 'TbNk5xsSuw5V' │ 2       │ '320×480'    │ 2104  │ 'photos/TbNk5xsSuw5V/v2/320.webp'  │
+│ 4       │ 'TbNk5xsSuw5V' │ 2       │ '960×1440'   │ 8060  │ 'photos/TbNk5xsSuw5V/v2/960.webp'  │
+│ 5       │ 'TbNk5xsSuw5V' │ 2       │ '1333×2000'  │ 13138 │ 'photos/TbNk5xsSuw5V/v2/1333.webp' │
+└─────────┴────────────────┴─────────┴──────────────┴───────┴────────────────────────────────────┘
+Object trong kho (ảnh TbNk5xsSuw5V)
+┌─────────┬────────────────────────────────────┬────────┬────────────────────────────┐
+│ (index) │ key                                │ size   │ lastModified               │
+├─────────┼────────────────────────────────────┼────────┼────────────────────────────┤
+│ 0       │ 'originals/TbNk5xsSuw5V.png'       │ 149108 │ '2026-11-27T14:45:53.000Z' │
+│ 1       │ 'photos/TbNk5xsSuw5V/v1/1600.webp' │ 10236  │ '2026-11-27T14:45:53.000Z' │
+│ 2       │ 'photos/TbNk5xsSuw5V/v1/320.webp'  │ 1486   │ '2026-11-27T14:45:53.000Z' │
+│ 3       │ 'photos/TbNk5xsSuw5V/v1/960.webp'  │ 5166   │ '2026-11-27T14:45:53.000Z' │
+│ 4       │ 'photos/TbNk5xsSuw5V/v2/1333.webp' │ 13138  │ '2026-11-27T14:45:54.000Z' │
+│ 5       │ 'photos/TbNk5xsSuw5V/v2/320.webp'  │ 2104   │ '2026-11-27T14:45:53.000Z' │
+│ 6       │ 'photos/TbNk5xsSuw5V/v2/960.webp'  │ 8060   │ '2026-11-27T14:45:54.000Z' │
+└─────────┴────────────────────────────────────┴────────┴────────────────────────────┘
+GET v1: HTTP/1.1 200 OK
+GET v2: HTTP/1.1 200 OK
+
+== CLEANUP với VERSION_RETENTION_HOURS=0.0001 (ép version v1 quá hạn; chỉ đặt biến môi trường cho lệnh này)
+Cleanup {"queueFilesRemoved":0,"queueRecordsRemoved":0,"queueTemporaryFilesRemoved":0,"temporaryFilesRemoved":0,"deletedPhotoFilesRemoved":0,"supersededVersionFilesRemoved":6,"orphanVersionFilesRemoved":0,"orphanOriginalFilesRemoved":0,"expiredSessionsRemoved":0}
+
+== SAU CLEANUP
+Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery'
+}
+Photo
+┌─────────┬────────────────┬─────────┬─────────────┬────────────────┐
+│ (index) │ id             │ title   │ status      │ currentVersion │
+├─────────┼────────────────┼─────────┼─────────────┼────────────────┤
+│ 0       │ 'TbNk5xsSuw5V' │ 'photo' │ 'PUBLISHED' │ 2              │
+└─────────┴────────────────┴─────────┴─────────────┴────────────────┘
+PhotoVariant
+┌─────────┬────────────────┬─────────┬──────────────┬───────┬────────────────────────────────────┐
+│ (index) │ photoId        │ version │ width×height │ bytes │ storageKey                         │
+├─────────┼────────────────┼─────────┼──────────────┼───────┼────────────────────────────────────┤
+│ 0       │ 'TbNk5xsSuw5V' │ 1       │ '320×213'    │ 1486  │ 'photos/TbNk5xsSuw5V/v1/320.webp'  │
+│ 1       │ 'TbNk5xsSuw5V' │ 1       │ '960×640'    │ 5166  │ 'photos/TbNk5xsSuw5V/v1/960.webp'  │
+│ 2       │ 'TbNk5xsSuw5V' │ 1       │ '1600×1066'  │ 10236 │ 'photos/TbNk5xsSuw5V/v1/1600.webp' │
+│ 3       │ 'TbNk5xsSuw5V' │ 2       │ '320×480'    │ 2104  │ 'photos/TbNk5xsSuw5V/v2/320.webp'  │
+│ 4       │ 'TbNk5xsSuw5V' │ 2       │ '960×1440'   │ 8060  │ 'photos/TbNk5xsSuw5V/v2/960.webp'  │
+│ 5       │ 'TbNk5xsSuw5V' │ 2       │ '1333×2000'  │ 13138 │ 'photos/TbNk5xsSuw5V/v2/1333.webp' │
+└─────────┴────────────────┴─────────┴──────────────┴───────┴────────────────────────────────────┘
+Object trong kho (ảnh TbNk5xsSuw5V)
+┌─────────┬────────────────────────────────────┬────────┬────────────────────────────┐
+│ (index) │ key                                │ size   │ lastModified               │
+├─────────┼────────────────────────────────────┼────────┼────────────────────────────┤
+│ 0       │ 'originals/TbNk5xsSuw5V.png'       │ 149108 │ '2026-11-27T14:45:53.000Z' │
+│ 1       │ 'photos/TbNk5xsSuw5V/v2/1333.webp' │ 13138  │ '2026-11-27T14:45:54.000Z' │
+│ 2       │ 'photos/TbNk5xsSuw5V/v2/320.webp'  │ 2104   │ '2026-11-27T14:45:53.000Z' │
+│ 3       │ 'photos/TbNk5xsSuw5V/v2/960.webp'  │ 8060   │ '2026-11-27T14:45:54.000Z' │
+└─────────┴────────────────────────────────────┴────────┴────────────────────────────┘
+GET v1: HTTP/1.1 404 Not Found
+GET v2: HTTP/1.1 200 OK
+
+== PhotoVersion sau cleanup (purgedAt của version quá hạn)
+┌─────────┬────────────────┬─────────┬────────────────────────────┬────────────────────────────┐
+│ (index) │ photoId        │ version │ supersededAt               │ purgedAt                   │
+├─────────┼────────────────┼─────────┼────────────────────────────┼────────────────────────────┤
+│ 0       │ 'TbNk5xsSuw5V' │ 1       │ '2026-11-27T14:45:54.630Z' │ '2026-11-27T14:46:08.787Z' │
+│ 1       │ 'TbNk5xsSuw5V' │ 2       │ null                       │ null                       │
+└─────────┴────────────────┴─────────┴────────────────────────────┴────────────────────────────┘

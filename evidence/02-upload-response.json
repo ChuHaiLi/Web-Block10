@@ -1,0 +1,53 @@
+{
+    "results": [
+        {
+            "index": 0,
+            "filename": "exif-rotated.jpg",
+            "ok": true,
+            "photo": {
+                "id": "PhqMCFNBVva8",
+                "title": "exif-rotated",
+                "url": "/photos/PhqMCFNBVva8",
+                "variants": [
+                    {
+                        "width": 320,
+                        "height": 480,
+                        "url": "/media/photos/PhqMCFNBVva8/v1/320.webp"
+                    },
+                    {
+                        "width": 800,
+                        "height": 1200,
+                        "url": "/media/photos/PhqMCFNBVva8/v1/800.webp"
+                    }
+                ]
+            }
+        },
+        {
+            "index": 1,
+            "filename": "photo.jpg",
+            "ok": true,
+            "photo": {
+                "id": "VZ5SR5hGdKSa",
+                "title": "photo",
+                "url": "/photos/VZ5SR5hGdKSa",
+                "variants": [
+                    {
+                        "width": 320,
+                        "height": 213,
+                        "url": "/media/photos/VZ5SR5hGdKSa/v1/320.webp"
+                    },
+                    {
+                        "width": 960,
+                        "height": 640,
+                        "url": "/media/photos/VZ5SR5hGdKSa/v1/960.webp"
+                    },
+                    {
+                        "width": 1600,
+                        "height": 1066,
+                        "url": "/media/photos/VZ5SR5hGdKSa/v1/1600.webp"
+                    }
+                ]
+            }
+        }
+    ]
+}

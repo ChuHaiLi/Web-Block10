@@ -1,0 +1,37 @@
+﻿photoId: PhqMCFNBVva8
+url: http://localhost:3000/media/photos/PhqMCFNBVva8/v1/320.webp
+== 2026-11-27T21:27:38 trước restart
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: image/webp
+Content-Length: 1690
+Cache-Control: public, max-age=31536000, immutable
+X-Content-Type-Options: nosniff
+Date: Fri, 27 Nov 2026 14:27:38 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+
+== 2026-11-27T21:28:46 sau restart web server
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: image/webp
+Content-Length: 1690
+Cache-Control: public, max-age=31536000, immutable
+X-Content-Type-Options: nosniff
+Date: Fri, 27 Nov 2026 14:28:46 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+
+== 2026-11-27T21:29:15 sau docker compose restart seaweedfs
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: image/webp
+Content-Length: 1690
+Cache-Control: public, max-age=31536000, immutable
+X-Content-Type-Options: nosniff
+Date: Fri, 27 Nov 2026 14:29:21 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

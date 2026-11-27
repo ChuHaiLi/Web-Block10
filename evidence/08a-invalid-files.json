@@ -1,0 +1,49 @@
+{
+  "results": [
+    {
+      "index": 0,
+      "filename": "photo.jpg",
+      "ok": true,
+      "photo": {
+        "id": "3VWlBHYW1Avu",
+        "title": "photo",
+        "url": "/photos/3VWlBHYW1Avu",
+        "variants": [
+          {
+            "width": 320,
+            "height": 213,
+            "url": "/media/photos/3VWlBHYW1Avu/v1/320.webp"
+          },
+          {
+            "width": 960,
+            "height": 640,
+            "url": "/media/photos/3VWlBHYW1Avu/v1/960.webp"
+          },
+          {
+            "width": 1600,
+            "height": 1066,
+            "url": "/media/photos/3VWlBHYW1Avu/v1/1600.webp"
+          }
+        ]
+      }
+    },
+    {
+      "index": 1,
+      "filename": "fake.jpg",
+      "ok": false,
+      "error": {
+        "code": "NOT_IMAGE",
+        "message": "File không phải JPEG hoặc PNG"
+      }
+    },
+    {
+      "index": 2,
+      "filename": "truncated.jpg",
+      "ok": false,
+      "error": {
+        "code": "CORRUPT",
+        "message": "Không đọc được ảnh"
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+Khách POST /api/uploads → HTTP 401 UNAUTHENTICATED
+Khách GET /upload → HTTP 303 /login?next=/upload
+Người khác POST /photos/3VWlBHYW1Avu/delete → HTTP 403
+Khách GET / → HTTP 200 · ảnh 3VWlBHYW1Avu hiển thị: có
+Khách GET /media/photos/3VWlBHYW1Avu/v1/320.webp → HTTP 200

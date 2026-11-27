@@ -1,0 +1,71 @@
+﻿photoId (ảnh thử cho mục 16): 1Q7BhO-pk_m0
+
+== Ý 1: upload ở 3000, thấy ở 3001 (cùng DB, cùng bucket)
+-- GET cổng 3000
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: image/webp
+Content-Length: 1486
+Cache-Control: public, max-age=31536000, immutable
+X-Content-Type-Options: nosniff
+Date: Fri, 27 Nov 2026 15:00:35 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+-- GET cổng 3001
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: image/webp
+Content-Length: 1486
+Cache-Control: public, max-age=31536000, immutable
+X-Content-Type-Options: nosniff
+Date: Fri, 27 Nov 2026 15:00:35 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+
+== Kho nháp riêng của mỗi server (chỉ tmp/ và cleanup-queue/, không có photos/)
+
+
+    Directory: D:\VSCode\HCMUS\Web\gallery-uploads-a
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        27/11/2026     21:59                cleanup-queue                                                        
+d-----        27/11/2026     21:59                tmp                                                                  
+
+
+    Directory: D:\VSCode\HCMUS\Web\gallery-uploads-b
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----        27/11/2026     21:59                cleanup-queue                                                        
+d-----        27/11/2026     21:59                tmp                                                                  
+
+
+
+== Ý 2: đăng nhập ở 3000, 3001 vẫn đăng nhập (xem ảnh 16-two-servers.png: cả hai cổng hiện tài khoản heheboi)
+
+== Ý 3: xóa ảnh ở server 3001 (nút Xóa), rồi GET ở 3000
+-- GET cổng 3000
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+Content-Type: text/plain; charset=utf-8
+Content-Length: 24
+ETag: W/"18-Mlk9A1J5PgZHb++ZWa5YbV+oXbI"
+Date: Fri, 27 Nov 2026 15:03:09 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+-- GET cổng 3001
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+Content-Type: text/plain; charset=utf-8
+Content-Length: 24
+ETag: W/"18-Mlk9A1J5PgZHb++ZWa5YbV+oXbI"
+Date: Fri, 27 Nov 2026 15:03:09 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

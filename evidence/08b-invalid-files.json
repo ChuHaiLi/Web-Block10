@@ -1,0 +1,53 @@
+{
+  "results": [
+    {
+      "index": 0,
+      "filename": "photo.png",
+      "ok": true,
+      "photo": {
+        "id": "3nHcQ40_essG",
+        "title": "photo",
+        "url": "/photos/3nHcQ40_essG",
+        "variants": [
+          {
+            "width": 320,
+            "height": 240,
+            "url": "/media/photos/3nHcQ40_essG/v1/320.webp"
+          },
+          {
+            "width": 800,
+            "height": 600,
+            "url": "/media/photos/3nHcQ40_essG/v1/800.webp"
+          }
+        ]
+      }
+    },
+    {
+      "index": 1,
+      "filename": "over-10mib.png",
+      "ok": false,
+      "error": {
+        "code": "TOO_LARGE",
+        "message": "Ảnh vượt quá 10 MiB"
+      }
+    },
+    {
+      "index": 2,
+      "filename": "too-many-pixels.png",
+      "ok": false,
+      "error": {
+        "code": "TOO_MANY_PIXELS",
+        "message": "Ảnh vượt quá 40 triệu pixel"
+      }
+    },
+    {
+      "index": 3,
+      "filename": "small.png",
+      "ok": false,
+      "error": {
+        "code": "ALT_REQUIRED",
+        "message": "Hãy nhập mô tả nội dung ảnh"
+      }
+    }
+  ]
+}

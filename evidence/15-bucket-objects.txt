@@ -1,0 +1,81 @@
+﻿Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery'
+}
+Photo
+┌─────────┬────────────────┬────────────────────────┬─────────────┬────────────────┐
+│ (index) │ id             │ title                  │ status      │ currentVersion │
+├─────────┼────────────────┼────────────────────────┼─────────────┼────────────────┤
+│ 0       │ '3nHcQ40_essG' │ 'photo'                │ 'PUBLISHED' │ 1              │
+│ 1       │ '3VWlBHYW1Avu' │ 'photo'                │ 'PUBLISHED' │ 1              │
+│ 2       │ '43yEk1-KOc79' │ 'Giai-Nhi-1--Nang-Tre' │ 'PUBLISHED' │ 1              │
+│ 3       │ 'k4lP79rFJWQl' │ 'anh-dep-82'           │ 'PUBLISHED' │ 2              │
+│ 4       │ 'PhqMCFNBVva8' │ 'exif-rotated'         │ 'PUBLISHED' │ 1              │
+│ 5       │ 'TbNk5xsSuw5V' │ 'photo'                │ 'PUBLISHED' │ 2              │
+│ 6       │ 'VZ5SR5hGdKSa' │ 'photo'                │ 'PUBLISHED' │ 1              │
+│ 7       │ 'XI5sG3Wcv9hO' │ 'photo'                │ 'PURGED'    │ 1              │
+└─────────┴────────────────┴────────────────────────┴─────────────┴────────────────┘
+PhotoVariant
+┌─────────┬────────────────┬─────────┬──────────────┬────────┬────────────────────────────────────┐
+│ (index) │ photoId        │ version │ width×height │ bytes  │ storageKey                         │
+├─────────┼────────────────┼─────────┼──────────────┼────────┼────────────────────────────────────┤
+│ 0       │ '3nHcQ40_essG' │ 1       │ '320×240'    │ 212    │ 'photos/3nHcQ40_essG/v1/320.webp'  │
+│ 1       │ '3nHcQ40_essG' │ 1       │ '800×600'    │ 940    │ 'photos/3nHcQ40_essG/v1/800.webp'  │
+│ 2       │ '3VWlBHYW1Avu' │ 1       │ '320×213'    │ 1486   │ 'photos/3VWlBHYW1Avu/v1/320.webp'  │
+│ 3       │ '3VWlBHYW1Avu' │ 1       │ '960×640'    │ 5166   │ 'photos/3VWlBHYW1Avu/v1/960.webp'  │
+│ 4       │ '3VWlBHYW1Avu' │ 1       │ '1600×1066'  │ 10236  │ 'photos/3VWlBHYW1Avu/v1/1600.webp' │
+│ 5       │ '43yEk1-KOc79' │ 1       │ '320×203'    │ 15966  │ 'photos/43yEk1-KOc79/v1/320.webp'  │
+│ 6       │ '43yEk1-KOc79' │ 1       │ '800×508'    │ 82148  │ 'photos/43yEk1-KOc79/v1/800.webp'  │
+│ 7       │ 'k4lP79rFJWQl' │ 1       │ '320×180'    │ 7824   │ 'photos/k4lP79rFJWQl/v1/320.webp'  │
+│ 8       │ 'k4lP79rFJWQl' │ 1       │ '960×540'    │ 66080  │ 'photos/k4lP79rFJWQl/v1/960.webp'  │
+│ 9       │ 'k4lP79rFJWQl' │ 1       │ '1200×675'   │ 100852 │ 'photos/k4lP79rFJWQl/v1/1200.webp' │
+│ 10      │ 'k4lP79rFJWQl' │ 2       │ '320×180'    │ 7824   │ 'photos/k4lP79rFJWQl/v2/320.webp'  │
+│ 11      │ 'k4lP79rFJWQl' │ 2       │ '960×540'    │ 66080  │ 'photos/k4lP79rFJWQl/v2/960.webp'  │
+│ 12      │ 'k4lP79rFJWQl' │ 2       │ '1200×675'   │ 100852 │ 'photos/k4lP79rFJWQl/v2/1200.webp' │
+│ 13      │ 'PhqMCFNBVva8' │ 1       │ '320×480'    │ 1690   │ 'photos/PhqMCFNBVva8/v1/320.webp'  │
+│ 14      │ 'PhqMCFNBVva8' │ 1       │ '800×1200'   │ 5232   │ 'photos/PhqMCFNBVva8/v1/800.webp'  │
+│ 15      │ 'TbNk5xsSuw5V' │ 1       │ '320×213'    │ 1486   │ 'photos/TbNk5xsSuw5V/v1/320.webp'  │
+│ 16      │ 'TbNk5xsSuw5V' │ 1       │ '960×640'    │ 5166   │ 'photos/TbNk5xsSuw5V/v1/960.webp'  │
+│ 17      │ 'TbNk5xsSuw5V' │ 1       │ '1600×1066'  │ 10236  │ 'photos/TbNk5xsSuw5V/v1/1600.webp' │
+│ 18      │ 'TbNk5xsSuw5V' │ 2       │ '320×480'    │ 2104   │ 'photos/TbNk5xsSuw5V/v2/320.webp'  │
+│ 19      │ 'TbNk5xsSuw5V' │ 2       │ '960×1440'   │ 8060   │ 'photos/TbNk5xsSuw5V/v2/960.webp'  │
+│ 20      │ 'TbNk5xsSuw5V' │ 2       │ '1333×2000'  │ 13138  │ 'photos/TbNk5xsSuw5V/v2/1333.webp' │
+│ 21      │ 'VZ5SR5hGdKSa' │ 1       │ '320×213'    │ 1486   │ 'photos/VZ5SR5hGdKSa/v1/320.webp'  │
+│ 22      │ 'VZ5SR5hGdKSa' │ 1       │ '960×640'    │ 5166   │ 'photos/VZ5SR5hGdKSa/v1/960.webp'  │
+│ 23      │ 'VZ5SR5hGdKSa' │ 1       │ '1600×1066'  │ 10236  │ 'photos/VZ5SR5hGdKSa/v1/1600.webp' │
+│ 24      │ 'XI5sG3Wcv9hO' │ 1       │ '320×213'    │ 1486   │ 'photos/XI5sG3Wcv9hO/v1/320.webp'  │
+│ 25      │ 'XI5sG3Wcv9hO' │ 1       │ '960×640'    │ 5166   │ 'photos/XI5sG3Wcv9hO/v1/960.webp'  │
+│ 26      │ 'XI5sG3Wcv9hO' │ 1       │ '1600×1066'  │ 10236  │ 'photos/XI5sG3Wcv9hO/v1/1600.webp' │
+└─────────┴────────────────┴─────────┴──────────────┴────────┴────────────────────────────────────┘
+Object trong kho
+┌─────────┬──────────────────────────────────────────┬─────────┬────────────────────────────┐
+│ (index) │ key                                      │ size    │ lastModified               │
+├─────────┼──────────────────────────────────────────┼─────────┼────────────────────────────┤
+│ 0       │ 'originals/3nHcQ40_essG.png'             │ 3037    │ '2026-11-27T13:11:06.000Z' │
+│ 1       │ 'originals/3VWlBHYW1Avu.png'             │ 149108  │ '2026-11-27T13:11:05.000Z' │
+│ 2       │ 'originals/43yEk1-KOc79.png'             │ 1070034 │ '2026-11-27T12:10:23.000Z' │
+│ 3       │ 'originals/k4lP79rFJWQl.png'             │ 1349430 │ '2026-11-27T12:10:24.000Z' │
+│ 4       │ 'originals/PhqMCFNBVva8.png'             │ 56758   │ '2026-11-27T12:48:58.000Z' │
+│ 5       │ 'originals/TbNk5xsSuw5V.png'             │ 149108  │ '2026-11-27T14:45:53.000Z' │
+│ 6       │ 'originals/VZ5SR5hGdKSa.png'             │ 149108  │ '2026-11-27T12:48:59.000Z' │
+│ 7       │ 'photos/3nHcQ40_essG/v1/320.webp'        │ 212     │ '2026-11-27T13:11:06.000Z' │
+│ 8       │ 'photos/3nHcQ40_essG/v1/800.webp'        │ 940     │ '2026-11-27T13:11:06.000Z' │
+│ 9       │ 'photos/3VWlBHYW1Avu/v1/1600.webp'       │ 10236   │ '2026-11-27T13:11:05.000Z' │
+│ 10      │ 'photos/3VWlBHYW1Avu/v1/320.webp'        │ 1486    │ '2026-11-27T13:11:05.000Z' │
+│ 11      │ 'photos/3VWlBHYW1Avu/v1/960.webp'        │ 5166    │ '2026-11-27T13:11:05.000Z' │
+│ 12      │ 'photos/43yEk1-KOc79/v1/320.webp'        │ 15966   │ '2026-11-27T12:10:24.000Z' │
+│ 13      │ 'photos/43yEk1-KOc79/v1/800.webp'        │ 82148   │ '2026-11-27T12:10:24.000Z' │
+│ 14      │ 'photos/k4lP79rFJWQl/v2/1200.webp'       │ 100852  │ '2026-11-27T12:11:18.000Z' │
+│ 15      │ 'photos/k4lP79rFJWQl/v2/320.webp'        │ 7824    │ '2026-11-27T12:11:18.000Z' │
+│ 16      │ 'photos/k4lP79rFJWQl/v2/960.webp'        │ 66080   │ '2026-11-27T12:11:18.000Z' │
+│ 17      │ 'photos/k4lP79rFJWQl/v2/dl/original.jpg' │ 154989  │ '2026-11-27T12:11:23.000Z' │
+│ 18      │ 'photos/PhqMCFNBVva8/v1/320.webp'        │ 1690    │ '2026-11-27T12:48:58.000Z' │
+│ 19      │ 'photos/PhqMCFNBVva8/v1/800.webp'        │ 5232    │ '2026-11-27T12:48:58.000Z' │
+│ 20      │ 'photos/TbNk5xsSuw5V/v2/1333.webp'       │ 13138   │ '2026-11-27T14:45:54.000Z' │
+│ 21      │ 'photos/TbNk5xsSuw5V/v2/320.webp'        │ 2104    │ '2026-11-27T14:45:53.000Z' │
+│ 22      │ 'photos/TbNk5xsSuw5V/v2/960.webp'        │ 8060    │ '2026-11-27T14:45:54.000Z' │
+│ 23      │ 'photos/VZ5SR5hGdKSa/v1/1600.webp'       │ 10236   │ '2026-11-27T12:48:59.000Z' │
+│ 24      │ 'photos/VZ5SR5hGdKSa/v1/320.webp'        │ 1486    │ '2026-11-27T12:48:59.000Z' │
+│ 25      │ 'photos/VZ5SR5hGdKSa/v1/960.webp'        │ 5166    │ '2026-11-27T12:48:59.000Z' │
+└─────────┴──────────────────────────────────────────┴─────────┴────────────────────────────┘

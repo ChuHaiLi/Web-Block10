@@ -1,0 +1,10 @@
+﻿HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: image/webp
+Content-Length: 1690
+Cache-Control: public, max-age=31536000, immutable
+X-Content-Type-Options: nosniff
+Date: Fri, 27 Nov 2026 13:03:21 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

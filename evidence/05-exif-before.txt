@@ -1,0 +1,76 @@
+﻿{
+  "file": "test/fixtures/exif-rotated.jpg",
+  "metadata": {
+    "format": "jpeg",
+    "width": 1200,
+    "height": 800,
+    "space": "srgb",
+    "channels": 3,
+    "depth": "uchar",
+    "density": 72,
+    "chromaSubsampling": "4:2:0",
+    "isProgressive": false,
+    "resolutionUnit": "inch",
+    "hasProfile": true,
+    "hasAlpha": false,
+    "orientation": 6,
+    "icc": {
+      "bytes": 480
+    }
+  },
+  "Orientation": 6,
+  "GPS": {
+    "GPSLatitudeRef": "N",
+    "GPSLatitude": [
+      10,
+      46,
+      0
+    ],
+    "GPSLongitudeRef": "E",
+    "GPSLongitude": [
+      106,
+      42,
+      0
+    ]
+  },
+  "EXIF": {
+    "bigEndian": false,
+    "Image": {
+      "Orientation": 6,
+      "XResolution": 72,
+      "YResolution": 72,
+      "ResolutionUnit": 2,
+      "YCbCrPositioning": 1,
+      "ExifTag": 114,
+      "GPSTag": 192
+    },
+    "Photo": {
+      "ExifVersion": {
+        "bytes": 4
+      },
+      "ComponentsConfiguration": {
+        "bytes": 4
+      },
+      "FlashpixVersion": {
+        "bytes": 4
+      },
+      "ColorSpace": 65535,
+      "PixelXDimension": 1200,
+      "PixelYDimension": 800
+    },
+    "GPSInfo": {
+      "GPSLatitudeRef": "N",
+      "GPSLatitude": [
+        10,
+        46,
+        0
+      ],
+      "GPSLongitudeRef": "E",
+      "GPSLongitude": [
+        106,
+        42,
+        0
+      ]
+    }
+  }
+}

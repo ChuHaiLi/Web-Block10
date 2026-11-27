@@ -1,0 +1,44 @@
+﻿photoId: tcey0SFvZuUj (chỉnh sửa qua giao diện: lật ngang + crop, 14-bonus-ui-before/edit/after.png)
+Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery'
+}
+Photo
+┌─────────┬────────────────┬─────────────────────┬─────────────┬────────────────┐
+│ (index) │ id             │ title               │ status      │ currentVersion │
+├─────────┼────────────────┼─────────────────────┼─────────────┼────────────────┤
+│ 0       │ 'tcey0SFvZuUj' │ 'Chinh-Sua-Anh.jpg' │ 'PUBLISHED' │ 2              │
+└─────────┴────────────────┴─────────────────────┴─────────────┴────────────────┘
+PhotoVariant
+┌─────────┬────────────────┬─────────┬──────────────┬───────┬───────────────────────────────────┐
+│ (index) │ photoId        │ version │ width×height │ bytes │ storageKey                        │
+├─────────┼────────────────┼─────────┼──────────────┼───────┼───────────────────────────────────┤
+│ 0       │ 'tcey0SFvZuUj' │ 1       │ '320×203'    │ 15966 │ 'photos/tcey0SFvZuUj/v1/320.webp' │
+│ 1       │ 'tcey0SFvZuUj' │ 1       │ '800×508'    │ 82148 │ 'photos/tcey0SFvZuUj/v1/800.webp' │
+│ 2       │ 'tcey0SFvZuUj' │ 2       │ '320×365'    │ 27584 │ 'photos/tcey0SFvZuUj/v2/320.webp' │
+│ 3       │ 'tcey0SFvZuUj' │ 2       │ '445×507'    │ 51468 │ 'photos/tcey0SFvZuUj/v2/445.webp' │
+└─────────┴────────────────┴─────────┴──────────────┴───────┴───────────────────────────────────┘
+Object trong kho (ảnh tcey0SFvZuUj)
+┌─────────┬───────────────────────────────────┬─────────┬────────────────────────────┐
+│ (index) │ key                               │ size    │ lastModified               │
+├─────────┼───────────────────────────────────┼─────────┼────────────────────────────┤
+│ 0       │ 'originals/tcey0SFvZuUj.png'      │ 1070034 │ '2026-11-27T15:09:38.000Z' │
+│ 1       │ 'photos/tcey0SFvZuUj/v1/320.webp' │ 15966   │ '2026-11-27T15:09:38.000Z' │
+│ 2       │ 'photos/tcey0SFvZuUj/v1/800.webp' │ 82148   │ '2026-11-27T15:09:38.000Z' │
+│ 3       │ 'photos/tcey0SFvZuUj/v2/320.webp' │ 27584   │ '2026-11-27T15:12:13.000Z' │
+│ 4       │ 'photos/tcey0SFvZuUj/v2/445.webp' │ 51468   │ '2026-11-27T15:12:13.000Z' │
+└─────────┴───────────────────────────────────┴─────────┴────────────────────────────┘
+GET /media/photos/tcey0SFvZuUj/v1/320.webp -> HTTP/1.1 200 OK
+GET /media/photos/tcey0SFvZuUj/v2/320.webp -> HTTP/1.1 200 OK
+
+== 409 trên giao diện (14-bonus-ui-409.png): hai tab cùng mở /edit ở phiên bản 2; tab A lưu thành v3, tab B lưu bị từ chối 'Ảnh đã có phiên bản mới'
+
+│ (index) │ id             │ title               │ status      │ currentVersion │
+│ 0       │ 'tcey0SFvZuUj' │ 'Chinh-Sua-Anh.jpg' │ 'PUBLISHED' │ 3              │
+│ 4       │ 'tcey0SFvZuUj' │ 3       │ '320×203'    │ 16260 │ 'photos/tcey0SFvZuUj/v3/320.webp' │
+│ 5       │ 'tcey0SFvZuUj' │ 3       │ '800×508'    │ 82278 │ 'photos/tcey0SFvZuUj/v3/800.webp' │
+│ 5       │ 'photos/tcey0SFvZuUj/v3/320.webp' │ 16260   │ '2026-11-27T15:15:00.000Z' │
+│ 6       │ 'photos/tcey0SFvZuUj/v3/800.webp' │ 82278   │ '2026-11-27T15:15:01.000Z' │
+
+

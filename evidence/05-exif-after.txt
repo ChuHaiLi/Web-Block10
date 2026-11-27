@@ -1,0 +1,17 @@
+﻿{
+  "file": "C:\\Users\\hailc\\AppData\\Local\\Temp\\variant.webp",
+  "metadata": {
+    "format": "webp",
+    "width": 320,
+    "height": 480,
+    "space": "srgb",
+    "channels": 3,
+    "depth": "uchar",
+    "isProgressive": false,
+    "hasProfile": false,
+    "hasAlpha": false
+  },
+  "Orientation": null,
+  "GPS": null,
+  "EXIF": null
+}

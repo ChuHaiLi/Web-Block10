@@ -1,0 +1,23 @@
+6 file hợp lệ
+HTTP 400
+Photo trước = 6
+Photo sau = 6
+Body
+{
+  "error": {
+    "code": "TOO_MANY_FILES",
+    "message": "Mỗi lần tải lên nhận tối đa 5 ảnh"
+  }
+}
+
+Chunked trên 55 MiB (1 file)
+HTTP 413
+Photo trước = 6
+Photo sau = 6
+Body
+{
+  "error": {
+    "code": "REQUEST_TOO_LARGE",
+    "message": "Yêu cầu vượt quá 55 MiB"
+  }
+}

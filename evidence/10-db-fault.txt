@@ -1,0 +1,94 @@
+﻿== TRƯỚC KHI UPLOAD LỖI (bucket test, FAULT_INJECT=db-after-write)
+Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery-test'
+}
+Photo
+┌─────────┐
+│ (index) │
+├─────────┤
+└─────────┘
+PhotoVariant
+┌─────────┐
+│ (index) │
+├─────────┤
+└─────────┘
+Object trong kho
+(trống)
+
+== UPLOAD 1 ẢNH HỢP LỆ Ở CỔNG TEST 3002
+POST http://localhost:3002/api/uploads -> HTTP 200
+{
+  "results": [
+    {
+      "index": 0,
+      "filename": "photo.jpg",
+      "ok": false,
+      "error": {
+        "code": "STORAGE_ERROR",
+        "message": "Không lưu được ảnh"
+      }
+    }
+  ]
+}
+
+== LOG LỖI CỦA SERVER TEST (dòng đầu: Error: Không lưu được ảnh; code STORAGE_ERROR, cause FAULT_INJECT)
+    at uploadError (D:\VSCode\HCMUS\Web\Block10\src\upload\errors.js:20:26)
+    at savePhoto (D:\VSCode\HCMUS\Web\Block10\src\upload\savePhoto.js:41:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async uploadPhoto (D:\VSCode\HCMUS\Web\Block10\src\routes\api.js:43:41)
+    at async D:\VSCode\HCMUS\Web\Block10\src\routes\api.js:134:30 {
+  code: 'STORAGE_ERROR',
+  [cause]: Error: FAULT_INJECT
+      at D:\VSCode\HCMUS\Web\Block10\src\upload\savePhoto.js:28:92
+      at async Proxy._transactionWithCallback 
+(D:\VSCode\HCMUS\Web\Block10\node_modules\@prisma\client\runtime\library.js:130:8000)
+      at async savePhoto (D:\VSCode\HCMUS\Web\Block10\src\upload\savePhoto.js:15:9)
+      at async uploadPhoto (D:\VSCode\HCMUS\Web\Block10\src\routes\api.js:43:41)
+      at async D:\VSCode\HCMUS\Web\Block10\src\routes\api.js:134:30
+}
+
+== SAU UPLOAD LỖI, TRƯỚC CLEANUP
+Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery-test'
+}
+Photo
+┌─────────┐
+│ (index) │
+├─────────┤
+└─────────┘
+PhotoVariant
+┌─────────┐
+│ (index) │
+├─────────┤
+└─────────┘
+Object trong kho
+(trống)
+
+== CLEANUP
+Cleanup {"queueFilesRemoved":0,"queueRecordsRemoved":0,"queueTemporaryFilesRemoved":0,"temporaryFilesRemoved":0,"deletedPhotoFilesRemoved":0,"supersededVersionFilesRemoved":0,"orphanVersionFilesRemoved":0,"orphanOriginalFilesRemoved":0,"expiredSessionsRemoved":0}
+
+== SAU CLEANUP
+Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery-test'
+}
+Photo
+┌─────────┐
+│ (index) │
+├─────────┤
+└─────────┘
+PhotoVariant
+┌─────────┐
+│ (index) │
+├─────────┤
+└─────────┘
+Object trong kho
+(trống)
+
+== Kho nháp tmp/ (../gallery-uploads-test/tmp)
+(trống)

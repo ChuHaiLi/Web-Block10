@@ -1,0 +1,34 @@
+﻿=== .env.example
+PORT=3000
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/photo_gallery
+SESSION_SECRET=replace-with-at-least-32-random-characters
+COOKIE_SECURE=false
+STORAGE_DRIVER=s3
+S3_ENDPOINT=http://localhost:8333
+S3_REGION=us-east-1
+S3_BUCKET=photo-gallery
+S3_ACCESS_KEY_ID=replace-with-local-access-key
+S3_SECRET_ACCESS_KEY=replace-with-local-secret-key
+S3_FORCE_PATH_STYLE=true
+# Khi STORAGE_DRIVER=s3, UPLOAD_ROOT chỉ chứa tmp/ và cleanup-queue/.
+# Trong .env.test, đặt UPLOAD_ROOT riêng, ví dụ ../gallery-uploads-test.
+UPLOAD_ROOT=../gallery-uploads
+VERSION_RETENTION_HOURS=24
+CLEANUP_INTERVAL_MINUTES=15
+# Chỉ có tác dụng khi NODE_ENV=test. Giá trị: db-after-write | edit-db-after-write
+FAULT_INJECT=
+=== seaweedfs/s3.example.json
+{
+    "identities": [
+        {
+            "name": "photo-gallery-local",
+            "credentials": [
+                {
+                    "accessKey": "replace-with-local-access-key",
+                    "secretKey": "replace-with-local-secret-key"
+                }
+            ],
+            "actions": ["Read", "Write", "List", "Tagging", "Admin"]
+        }
+    ]
+}

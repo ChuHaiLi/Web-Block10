@@ -1,0 +1,70 @@
+﻿== TRƯỚC KHI XÓA
+Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery'
+}
+Photo
+┌─────────┬────────────────┬─────────┬─────────────┬────────────────┐
+│ (index) │ id             │ title   │ status      │ currentVersion │
+├─────────┼────────────────┼─────────┼─────────────┼────────────────┤
+│ 0       │ 'XI5sG3Wcv9hO' │ 'photo' │ 'PUBLISHED' │ 1              │
+└─────────┴────────────────┴─────────┴─────────────┴────────────────┘
+PhotoVariant
+┌─────────┬────────────────┬─────────┬──────────────┬───────┬────────────────────────────────────┐
+│ (index) │ photoId        │ version │ width×height │ bytes │ storageKey                         │
+├─────────┼────────────────┼─────────┼──────────────┼───────┼────────────────────────────────────┤
+│ 0       │ 'XI5sG3Wcv9hO' │ 1       │ '320×213'    │ 1486  │ 'photos/XI5sG3Wcv9hO/v1/320.webp'  │
+│ 1       │ 'XI5sG3Wcv9hO' │ 1       │ '960×640'    │ 5166  │ 'photos/XI5sG3Wcv9hO/v1/960.webp'  │
+│ 2       │ 'XI5sG3Wcv9hO' │ 1       │ '1600×1066'  │ 10236 │ 'photos/XI5sG3Wcv9hO/v1/1600.webp' │
+└─────────┴────────────────┴─────────┴──────────────┴───────┴────────────────────────────────────┘
+Object trong kho (ảnh XI5sG3Wcv9hO)
+┌─────────┬────────────────────────────────────┬────────┬────────────────────────────┐
+│ (index) │ key                                │ size   │ lastModified               │
+├─────────┼────────────────────────────────────┼────────┼────────────────────────────┤
+│ 0       │ 'originals/XI5sG3Wcv9hO.png'       │ 149108 │ '2026-11-27T14:35:53.000Z' │
+│ 1       │ 'photos/XI5sG3Wcv9hO/v1/1600.webp' │ 10236  │ '2026-11-27T14:35:54.000Z' │
+│ 2       │ 'photos/XI5sG3Wcv9hO/v1/320.webp'  │ 1486   │ '2026-11-27T14:35:53.000Z' │
+│ 3       │ 'photos/XI5sG3Wcv9hO/v1/960.webp'  │ 5166   │ '2026-11-27T14:35:53.000Z' │
+└─────────┴────────────────────────────────────┴────────┴────────────────────────────┘
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: image/webp
+Content-Length: 1486
+Cache-Control: public, max-age=31536000, immutable
+X-Content-Type-Options: nosniff
+Date: Fri, 27 Nov 2026 14:41:10 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+== SAU KHI XÓA
+Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery'
+}
+Photo
+┌─────────┬────────────────┬─────────┬──────────┬────────────────┐
+│ (index) │ id             │ title   │ status   │ currentVersion │
+├─────────┼────────────────┼─────────┼──────────┼────────────────┤
+│ 0       │ 'XI5sG3Wcv9hO' │ 'photo' │ 'PURGED' │ 1              │
+└─────────┴────────────────┴─────────┴──────────┴────────────────┘
+PhotoVariant
+┌─────────┬────────────────┬─────────┬──────────────┬───────┬────────────────────────────────────┐
+│ (index) │ photoId        │ version │ width×height │ bytes │ storageKey                         │
+├─────────┼────────────────┼─────────┼──────────────┼───────┼────────────────────────────────────┤
+│ 0       │ 'XI5sG3Wcv9hO' │ 1       │ '320×213'    │ 1486  │ 'photos/XI5sG3Wcv9hO/v1/320.webp'  │
+│ 1       │ 'XI5sG3Wcv9hO' │ 1       │ '960×640'    │ 5166  │ 'photos/XI5sG3Wcv9hO/v1/960.webp'  │
+│ 2       │ 'XI5sG3Wcv9hO' │ 1       │ '1600×1066'  │ 10236 │ 'photos/XI5sG3Wcv9hO/v1/1600.webp' │
+└─────────┴────────────────┴─────────┴──────────────┴───────┴────────────────────────────────────┘
+Object trong kho (ảnh XI5sG3Wcv9hO)
+(trống)
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+Content-Type: text/plain; charset=utf-8
+Content-Length: 24
+ETag: W/"18-Mlk9A1J5PgZHb++ZWa5YbV+oXbI"
+Date: Fri, 27 Nov 2026 14:45:05 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

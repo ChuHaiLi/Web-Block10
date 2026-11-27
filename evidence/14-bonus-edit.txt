@@ -1,0 +1,42 @@
+﻿== TRƯỚC CHỈNH SỬA: upload photo.jpg, photoId = TbNk5xsSuw5V
+[
+  "/media/photos/TbNk5xsSuw5V/v1/320.webp",
+  "/media/photos/TbNk5xsSuw5V/v1/960.webp",
+  "/media/photos/TbNk5xsSuw5V/v1/1600.webp"
+]
+GET /media/photos/TbNk5xsSuw5V/v1/320.webp -> HTTP 200 image/webp
+
+== CHỈNH SỬA 1: POST /api/photos/TbNk5xsSuw5V/edits {baseVersion:1, rotate:90} -> HTTP 200
+{
+  "version": 2,
+  "variants": [
+    {
+      "width": 320,
+      "height": 480,
+      "url": "/media/photos/TbNk5xsSuw5V/v2/320.webp"
+    },
+    {
+      "width": 960,
+      "height": 1440,
+      "url": "/media/photos/TbNk5xsSuw5V/v2/960.webp"
+    },
+    {
+      "width": 1333,
+      "height": 2000,
+      "url": "/media/photos/TbNk5xsSuw5V/v2/1333.webp"
+    }
+  ]
+}
+
+== CHỈNH SỬA ĐỒNG THỜI (baseVersion:1 đã cũ) -> HTTP 409
+{
+  "error": {
+    "code": "VERSION_CONFLICT",
+    "message": "Ảnh đã có phiên bản mới"
+  },
+  "currentVersion": 2
+}
+
+== SAU CHỈNH SỬA
+GET /media/photos/TbNk5xsSuw5V/v1/320.webp -> HTTP 200 image/webp
+GET /media/photos/TbNk5xsSuw5V/v2/320.webp -> HTTP 200 image/webp

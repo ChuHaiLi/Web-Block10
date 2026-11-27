@@ -1,0 +1,55 @@
+﻿Object store {
+  driver: 's3',
+  endpoint: 'http://localhost:8333',
+  bucket: 'photo-gallery'
+}
+Photo
+┌─────────┬────────────────┬────────────────────────┬─────────────┬────────────────┐
+│ (index) │ id             │ title                  │ status      │ currentVersion │
+├─────────┼────────────────┼────────────────────────┼─────────────┼────────────────┤
+│ 0       │ '43yEk1-KOc79' │ 'Giai-Nhi-1--Nang-Tre' │ 'PUBLISHED' │ 1              │
+│ 1       │ 'k4lP79rFJWQl' │ 'anh-dep-82'           │ 'PUBLISHED' │ 2              │
+│ 2       │ 'PhqMCFNBVva8' │ 'exif-rotated'         │ 'PUBLISHED' │ 1              │
+│ 3       │ 'VZ5SR5hGdKSa' │ 'photo'                │ 'PUBLISHED' │ 1              │
+└─────────┴────────────────┴────────────────────────┴─────────────┴────────────────┘
+PhotoVariant
+┌─────────┬────────────────┬─────────┬──────────────┬────────┬────────────────────────────────────┐
+│ (index) │ photoId        │ version │ width×height │ bytes  │ storageKey                         │
+├─────────┼────────────────┼─────────┼──────────────┼────────┼────────────────────────────────────┤
+│ 0       │ '43yEk1-KOc79' │ 1       │ '320×203'    │ 15966  │ 'photos/43yEk1-KOc79/v1/320.webp'  │
+│ 1       │ '43yEk1-KOc79' │ 1       │ '800×508'    │ 82148  │ 'photos/43yEk1-KOc79/v1/800.webp'  │
+│ 2       │ 'k4lP79rFJWQl' │ 1       │ '320×180'    │ 7824   │ 'photos/k4lP79rFJWQl/v1/320.webp'  │
+│ 3       │ 'k4lP79rFJWQl' │ 1       │ '960×540'    │ 66080  │ 'photos/k4lP79rFJWQl/v1/960.webp'  │
+│ 4       │ 'k4lP79rFJWQl' │ 1       │ '1200×675'   │ 100852 │ 'photos/k4lP79rFJWQl/v1/1200.webp' │
+│ 5       │ 'k4lP79rFJWQl' │ 2       │ '320×180'    │ 7824   │ 'photos/k4lP79rFJWQl/v2/320.webp'  │
+│ 6       │ 'k4lP79rFJWQl' │ 2       │ '960×540'    │ 66080  │ 'photos/k4lP79rFJWQl/v2/960.webp'  │
+│ 7       │ 'k4lP79rFJWQl' │ 2       │ '1200×675'   │ 100852 │ 'photos/k4lP79rFJWQl/v2/1200.webp' │
+│ 8       │ 'PhqMCFNBVva8' │ 1       │ '320×480'    │ 1690   │ 'photos/PhqMCFNBVva8/v1/320.webp'  │
+│ 9       │ 'PhqMCFNBVva8' │ 1       │ '800×1200'   │ 5232   │ 'photos/PhqMCFNBVva8/v1/800.webp'  │
+│ 10      │ 'VZ5SR5hGdKSa' │ 1       │ '320×213'    │ 1486   │ 'photos/VZ5SR5hGdKSa/v1/320.webp'  │
+│ 11      │ 'VZ5SR5hGdKSa' │ 1       │ '960×640'    │ 5166   │ 'photos/VZ5SR5hGdKSa/v1/960.webp'  │
+│ 12      │ 'VZ5SR5hGdKSa' │ 1       │ '1600×1066'  │ 10236  │ 'photos/VZ5SR5hGdKSa/v1/1600.webp' │
+└─────────┴────────────────┴─────────┴──────────────┴────────┴────────────────────────────────────┘
+Object trong kho
+┌─────────┬──────────────────────────────────────────┬─────────┬────────────────────────────┐
+│ (index) │ key                                      │ size    │ lastModified               │
+├─────────┼──────────────────────────────────────────┼─────────┼────────────────────────────┤
+│ 0       │ 'originals/43yEk1-KOc79.png'             │ 1070034 │ '2026-11-27T12:10:23.000Z' │
+│ 1       │ 'originals/k4lP79rFJWQl.png'             │ 1349430 │ '2026-11-27T12:10:24.000Z' │
+│ 2       │ 'originals/PhqMCFNBVva8.png'             │ 56758   │ '2026-11-27T12:48:58.000Z' │
+│ 3       │ 'originals/VZ5SR5hGdKSa.png'             │ 149108  │ '2026-11-27T12:48:59.000Z' │
+│ 4       │ 'photos/43yEk1-KOc79/v1/320.webp'        │ 15966   │ '2026-11-27T12:10:24.000Z' │
+│ 5       │ 'photos/43yEk1-KOc79/v1/800.webp'        │ 82148   │ '2026-11-27T12:10:24.000Z' │
+│ 6       │ 'photos/k4lP79rFJWQl/v1/1200.webp'       │ 100852  │ '2026-11-27T12:10:24.000Z' │
+│ 7       │ 'photos/k4lP79rFJWQl/v1/320.webp'        │ 7824    │ '2026-11-27T12:10:24.000Z' │
+│ 8       │ 'photos/k4lP79rFJWQl/v1/960.webp'        │ 66080   │ '2026-11-27T12:10:24.000Z' │
+│ 9       │ 'photos/k4lP79rFJWQl/v2/1200.webp'       │ 100852  │ '2026-11-27T12:11:18.000Z' │
+│ 10      │ 'photos/k4lP79rFJWQl/v2/320.webp'        │ 7824    │ '2026-11-27T12:11:18.000Z' │
+│ 11      │ 'photos/k4lP79rFJWQl/v2/960.webp'        │ 66080   │ '2026-11-27T12:11:18.000Z' │
+│ 12      │ 'photos/k4lP79rFJWQl/v2/dl/original.jpg' │ 154989  │ '2026-11-27T12:11:23.000Z' │
+│ 13      │ 'photos/PhqMCFNBVva8/v1/320.webp'        │ 1690    │ '2026-11-27T12:48:58.000Z' │
+│ 14      │ 'photos/PhqMCFNBVva8/v1/800.webp'        │ 5232    │ '2026-11-27T12:48:58.000Z' │
+│ 15      │ 'photos/VZ5SR5hGdKSa/v1/1600.webp'       │ 10236   │ '2026-11-27T12:48:59.000Z' │
+│ 16      │ 'photos/VZ5SR5hGdKSa/v1/320.webp'        │ 1486    │ '2026-11-27T12:48:59.000Z' │
+│ 17      │ 'photos/VZ5SR5hGdKSa/v1/960.webp'        │ 5166    │ '2026-11-27T12:48:59.000Z' │
+└─────────┴──────────────────────────────────────────┴─────────┴────────────────────────────┘
