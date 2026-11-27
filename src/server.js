@@ -8,6 +8,11 @@ const { createScratch } = require('./storage/scratch');
 async function start()
 {
     const config = loadConfig();
+    if (config.storageDriverDefaulted)
+    {
+        const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
+        console.warn(`Thiếu STORAGE_DRIVER trong ${envFile}. Đang dùng driver local mặc định.`);
+    }
     const prisma = createDb(config.databaseUrl);
     const objectStore = createObjectStore(config);
     const scratch = createScratch(config.uploadRoot);
@@ -33,14 +38,24 @@ async function start()
 
     try
     {
-        await objectStore.ensureReady();
+        try
+        {
+            await objectStore.ensureReady();
+        }
+        catch (error)
+        {
+            if (config.storageDriver === 's3') throw new Error(error.message + '. Chạy npm run storage:up trước.');
+            throw error;
+        }
         await scratch.initialize();
         await prisma.$connect();
         await cleanup();
         const app = createApp({ prisma, objectStore, scratch, faultInject: config.faultInject });
         const server = app.listen(config.port, () =>
         {
-            console.log(`Photo Gallery: http://localhost:${server.address().port}`);
+            const store = objectStore.describe();
+            const location = store.driver === 's3' ? `${store.endpoint} bucket ${store.bucket}` : store.root;
+            console.log(`Photo Gallery: http://localhost:${server.address().port} · storage: ${store.driver} ${location}`);
         });
         const timer = setInterval(cleanup, config.cleanupIntervalMinutes * 60 * 1000);
         timer.unref();

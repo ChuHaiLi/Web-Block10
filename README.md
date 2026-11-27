@@ -1,10 +1,10 @@
 # Photo Gallery
 
-Ứng dụng upload ảnh JPEG/PNG, tạo biến thể WebP và hiển thị gallery responsive. Express và EJS render trang, PostgreSQL lưu metadata qua Prisma, còn file ảnh nằm trên đĩa.
+Ứng dụng upload ảnh JPEG/PNG, tạo biến thể WebP và hiển thị gallery responsive. Express và EJS render trang, PostgreSQL lưu metadata qua Prisma, còn file ảnh được lưu trong kho ảnh đã cấu hình.
 
 ## Cài đặt và chạy
 
-Cần PostgreSQL đang chạy và Node.js 20.6 trở lên để dùng lệnh `--env-file` bên dưới. Chạy các lệnh từ thư mục gốc dự án.
+Cần PostgreSQL đang chạy, Node.js 20.6 trở lên và Docker Compose để dùng driver S3. Chạy các lệnh từ thư mục gốc dự án.
 
 ```sh
 npm i
@@ -12,7 +12,12 @@ npm i
 
 Tạo `.env` và `.env.test` từ `.env.example` khi chưa có hai file cục bộ. Điền `DATABASE_URL` cho từng DB. Tên DB test phải chứa `test`, ví dụ `photo_gallery_test`. Đặt `UPLOAD_ROOT` riêng cho test, mặc định là `../gallery-uploads-test`. Dev mặc định dùng `../gallery-uploads`. Đường dẫn tương đối được tính từ thư mục gốc dự án.
 
+**Thêm `STORAGE_DRIVER=s3` và đủ các biến `S3_*` từ `.env.example` vào cả `.env` lẫn `.env.test`, kể cả khi hai file đã có sẵn.** Tạo `seaweedfs/s3.json` từ `seaweedfs/s3.example.json`, rồi điền `S3_ACCESS_KEY_ID` và `S3_SECRET_ACCESS_KEY` khớp với file JSON vào cả hai file môi trường. Dùng `S3_BUCKET=photo-gallery` trong `.env` và `S3_BUCKET=photo-gallery-test` trong `.env.test`.
+
+Docker Compose ghim SeaweedFS **4.55**, với S3 API ở `http://localhost:8333` và giao diện filer ở `http://localhost:8888`. [Cờ khởi động SeaweedFS 4.55](https://github.com/seaweedfs/seaweedfs/blob/4.55/weed/command/server.go) · [Định dạng cấu hình S3](https://github.com/seaweedfs/seaweedfs/blob/4.55/weed/command/s3.go)
+
 ```sh
+npm run storage:up
 npm run fixtures
 npx prisma migrate dev
 node --env-file=.env.test ./node_modules/prisma/build/index.js migrate deploy
@@ -25,7 +30,9 @@ Mở `http://localhost:3000` để xem gallery hoặc `/upload` để tải ản
 npm test
 ```
 
-Test chạy tuần tự, reset DB test và dùng kho tạm riêng cho từng ca. Test restart đóng HTTP server và kết nối Prisma đầu tiên, rồi mở một app mới với cùng DB và kho để kiểm tra gallery và GET media.
+Test chạy tuần tự, reset DB test và dùng kho nháp riêng cho từng ca. Với S3, `npm test` ghi, đọc và dọn một object trong bucket làm nóng trước khi chạy suite. Mỗi ca sau đó dùng bucket riêng có hậu tố ngẫu nhiên rồi dọn object và xóa bucket. Test restart tạo app mới với cùng DB và bucket, dùng kho nháp mới để kiểm tra gallery và GET media.
+
+Dùng `npm run storage:down` để dừng SeaweedFS. Volume `seaweedfs-data` giữ object giữa các lần chạy. Có thể chọn `STORAGE_DRIVER=local` trong cấu hình dev hoặc test khi cần chạy bằng đĩa cục bộ.
 
 ## Giới hạn upload
 
@@ -45,14 +52,14 @@ Lỗi cấp request như quá số file, quá tổng dung lượng hoặc multip
 
 ## Kho ảnh và xóa
 
-`STORAGE_DRIVER=local` lưu ảnh công bố và PNG gốc qua interface `ObjectStore`. File tạm và hàng đợi dọn dùng kho nháp trên đĩa. Với driver local, cả hai nằm trong `UPLOAD_ROOT` và dùng các prefix riêng.
+`ObjectStore` lưu ảnh công bố và PNG gốc trong bucket với driver `s3`, hoặc trên đĩa trong `UPLOAD_ROOT` với driver `local`. File tạm và hàng đợi dọn luôn dùng kho nháp trên đĩa của từng server. Trình duyệt lấy ảnh qua web server để mỗi request media vẫn kiểm tra trạng thái ảnh và phiên bản trong DB.
 
-| Đường dẫn trong `UPLOAD_ROOT` | Nội dung |
+| Prefix hoặc key | Nội dung |
 |---|---|
-| `originals/<id>.png` | Bản gốc đã chuẩn hóa, dùng nội bộ |
-| `photos/<id>/v<n>/<width>.webp` | Variant được phục vụ qua `GET /media/<key>` khi DB cho phép |
-| `tmp/<uploadId>-<index>` | File tạm trong lúc upload |
-| `cleanup-queue/` | Bản ghi JSON chứa storage key cần xóa lại |
+| `originals/<id>.png` | Object PNG gốc đã chuẩn hóa, dùng nội bộ |
+| `photos/<id>/v<n>/<width>.webp` | Object WebP được phục vụ qua `GET /media/<key>` khi DB cho phép |
+| `tmp/<uploadId>-<index>` | File tạm trong `UPLOAD_ROOT` lúc upload |
+| `cleanup-queue/` | Bản ghi JSON trong `UPLOAD_ROOT` chứa storage key cần xóa lại |
 
 DB giữ storage key tương đối. Khi xóa ảnh, trạng thái chuyển sang `DELETING` để ẩn ảnh khỏi gallery, trang chi tiết và media. Sau khi xóa hết file, ứng dụng đánh dấu `Photo.status = PURGED` và đặt `purgedAt` cho ảnh và các phiên bản. Các bản ghi metadata được giữ lại để đối chiếu storage key.
 
@@ -140,6 +147,6 @@ npm run evidence:requests -- --base http://localhost:3000
 
 ## Ngoài phạm vi
 
-Dự án dùng kho file cục bộ. Đăng nhập, phân quyền, CSRF, object storage như SeaweedFS/MinIO và CDN nằm ngoài phạm vi bài. Người truy cập có thể upload và xóa ảnh qua giao diện. Chỉnh sửa ảnh là phần bonus.
+Đăng nhập, phân quyền người dùng, CSRF và CDN nằm ngoài phạm vi bài. Người truy cập có thể upload và xóa ảnh qua giao diện. Chỉnh sửa ảnh là phần bonus.
 
 [Thiết kế và tiêu chí kiểm thử](SPEC.md) · [Yêu cầu bài tập](REQUIREMENTS.md)

@@ -26,7 +26,7 @@ function close(server)
 
 test('restart tạo app mới với cùng DB và object store nhưng kho nháp mới, gallery và media vẫn 200', async t =>
 {
-    const { app, prisma, scratch, reopenObjectStore } = await prepareTest(t);
+    const { app, prisma, scratch, objectStore, reopenObjectStore } = await prepareTest(t);
     const first = await listen(app);
     let photo;
     let savedMedia;
@@ -57,8 +57,11 @@ test('restart tạo app mới với cùng DB và object store nhưng kho nháp m
     const restartedPrisma = createDb(loadConfig().databaseUrl);
     const restartedScratch = createScratch(path.join(scratch.root, 'restart'));
     await restartedScratch.initialize();
+    const restartedStore = reopenObjectStore();
+    assert.notEqual(restartedStore, objectStore);
+    assert.deepEqual(restartedStore.describe(), objectStore.describe());
     const restartedApp = createApp({
-        prisma: restartedPrisma, objectStore: reopenObjectStore(), scratch: restartedScratch
+        prisma: restartedPrisma, objectStore: restartedStore, scratch: restartedScratch
     });
     assert.notEqual(restartedApp, app);
     const second = await listen(restartedApp);

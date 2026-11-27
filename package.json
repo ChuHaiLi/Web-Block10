@@ -3,19 +3,25 @@
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test --test-concurrency=1 test/",
+    "test": "node scripts/check-test-storage.js && node --test --test-concurrency=1 test/",
     "fixtures": "node scripts/make-fixtures.js",
     "cleanup": "node scripts/cleanup.js",
+    "storage:up": "docker compose up -d seaweedfs",
+    "storage:down": "docker compose stop seaweedfs",
     "evidence:db": "node scripts/evidence-db.js",
     "evidence:exif": "node scripts/evidence-exif.js",
     "evidence:requests": "node scripts/evidence-requests.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1178.0",
     "@prisma/client": "5.22.0",
+    "@smithy/node-http-handler": "4.14.2",
     "busboy": "^1.6.0",
     "dotenv": "^16.4.7",
     "ejs": "^3.1.10",

@@ -1,4 +1,5 @@
 const fs = require('node:fs/promises');
+const { randomBytes } = require('node:crypto');
 const os = require('node:os');
 const path = require('node:path');
 const supertest = require('supertest');
@@ -17,15 +18,71 @@ function requireTestDatabase(databaseUrl)
     }
 }
 
+function makeStorageConfig(storageDriver, root)
+{
+    const uploadRoot = path.join(root, 'objects');
+    if (storageDriver === 'local') return { storageDriver, uploadRoot };
+
+    const { s3 } = loadConfig({ nodeEnv: 'test', storageDriver, uploadRoot });
+    if (s3.bucket.length > 54) throw new Error('S3_BUCKET của bộ test phải chừa 9 ký tự cho hậu tố ngẫu nhiên');
+    return { storageDriver, uploadRoot, s3: { ...s3, bucket: s3.bucket + '-' + randomBytes(4).toString('hex') } };
+}
+
+async function prepareS3Bucket(t, config, reopenObjectStore)
+{
+    const { HeadBucketCommand, DeleteBucketCommand } = require('@aws-sdk/client-s3');
+    const { createS3Client } = require('../src/storage/s3');
+    const { bucket } = config.s3;
+    const client = createS3Client(config.s3);
+    t.after(() => client.destroy());
+    try
+    {
+        await client.send(new HeadBucketCommand({ Bucket: bucket }));
+    }
+    catch (error)
+    {
+        if (error.$metadata?.httpStatusCode !== 404)
+        {
+            throw new Error('Không truy cập được SeaweedFS. Chạy: npm run storage:up và kiểm tra .env.test.');
+        }
+
+        await reopenObjectStore().ensureReady();
+        // Use another instance so mocks in a test do not affect teardown.
+        t.after(async () =>
+        {
+            const store = reopenObjectStore();
+            const keys = [];
+            for await (const { key } of store.list('')) keys.push(key);
+            for (const key of keys) await store.delete(key);
+            const cleanupClient = createS3Client(config.s3);
+            try
+            {
+                await cleanupClient.send(new DeleteBucketCommand({ Bucket: bucket }));
+            }
+            catch
+            {
+                throw new Error('Không xóa được bucket kiểm thử đã tạo');
+            }
+            finally
+            {
+                cleanupClient.destroy();
+            }
+        });
+        return;
+    }
+    throw new Error('Bucket kiểm thử ngẫu nhiên đã tồn tại');
+}
+
 async function prepareStorage(t, { storageDriver = 'local' } = {})
 {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'block10-'));
     t.after(() => fs.rm(root, { recursive: true, force: true }));
-    const config = { storageDriver, uploadRoot: path.join(root, 'objects') };
+    const config = makeStorageConfig(storageDriver, root);
     const reopenObjectStore = () => createObjectStore(config);
     const objectStore = reopenObjectStore();
     const scratch = createScratch(path.join(root, 'scratch'));
-    await objectStore.ensureReady();
+    if (storageDriver === 's3') await prepareS3Bucket(t, config, reopenObjectStore);
+    else await objectStore.ensureReady();
     await scratch.initialize();
 
     async function listObjectKeys(prefix = '')

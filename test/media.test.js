@@ -73,6 +73,7 @@ test('media GET trả 404 với key sai, file riêng, file mồ côi hoặc ản
     await prisma.photo.update({ where: { id }, data: { status: 'PUBLISHED' } });
 
     await objectStore.delete(key);
+    assert.equal(await prisma.photoVariant.count({ where: { storageKey: key } }), 1);
     const missing = await request.get(url).expect(404);
     assert.equal(missing.headers['cache-control'], undefined);
 });
@@ -84,7 +85,8 @@ test('media lỗi đọc trước byte đầu tiên không kèm cache ảnh, loc
     assert.equal(body.results[0].ok, true);
     const [{ url }] = body.results[0].photo.variants;
     const error = Object.assign(new Error('Lỗi kho giả lập'), { code: 'ECONNRESET' });
-    const driver = t.mock.method(objectStore, 'describe', () => ({ driver: 's3' }));
+    let driver = 's3';
+    t.mock.method(objectStore, 'describe', () => ({ driver }));
     t.mock.method(console, 'error', () => undefined);
     const stream = t.mock.method(objectStore, 'getStream', async () => { throw error; });
     const failedBeforeStream = await request.get(url).expect(502);
@@ -99,7 +101,7 @@ test('media lỗi đọc trước byte đầu tiên không kèm cache ảnh, loc
     const failedBeforeFirstByte = await request.get(url).expect(502);
     assert.equal(failedBeforeFirstByte.headers['cache-control'], undefined);
 
-    driver.mock.restore();
+    driver = 'local';
     const localFailure = await request.get(url).expect(500);
     assert.equal(localFailure.headers['cache-control'], undefined);
 });

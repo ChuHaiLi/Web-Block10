@@ -24,10 +24,11 @@ function validateObjectKey(key)
  */
 
 /** @returns {ObjectStore} */
-function createObjectStore({ storageDriver, uploadRoot })
+function createObjectStore({ storageDriver, uploadRoot, s3 })
 {
     if (storageDriver === 'local') return require('./local').createLocalObjectStore(uploadRoot);
-    throw new Error('STORAGE_DRIVER=' + storageDriver + ' chưa được hỗ trợ. Hãy dùng STORAGE_DRIVER=local.');
+    if (storageDriver === 's3') return require('./s3').createS3ObjectStore(s3);
+    throw new Error('STORAGE_DRIVER phải là local hoặc s3');
 }
 
 module.exports = { createObjectStore, isObjectKey, validateObjectKey, variantKeyPattern, originalKeyPattern };

@@ -1,0 +1,14 @@
+{
+    "identities": [
+        {
+            "name": "photo-gallery-local",
+            "credentials": [
+                {
+                    "accessKey": "replace-with-local-access-key",
+                    "secretKey": "replace-with-local-secret-key"
+                }
+            ],
+            "actions": ["Read", "Write", "List", "Tagging", "Admin"]
+        }
+    ]
+}

@@ -4,14 +4,18 @@ const path = require('node:path');
 const { buffer } = require('node:stream/consumers');
 const { test } = require('node:test');
 const { prepareStorage } = require('./helpers');
+const { loadConfig } = require('../src/config');
 
-const drivers = ['local'];
+const selectedDriver = process.env.STORAGE_DRIVER ?? loadConfig({ nodeEnv: 'test' }).storageDriver;
+const drivers = ['local', 's3'];
 const prefix = 'photos/aaaaaaaaaaaa/v1/';
 const original = 'originals/aaaaaaaaaaaa.png';
 
 for (const storageDriver of drivers)
 {
-    test('storage.contract ' + storageDriver, async t =>
+    test('storage.contract ' + storageDriver, {
+        skip: storageDriver === 's3' && selectedDriver !== 's3'
+    }, async t =>
     {
         const { objectStore, scratch, objectExists } = await prepareStorage(t, { storageDriver });
         const bytes = Buffer.from([1, 0, 2, 255]);

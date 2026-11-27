@@ -1,0 +1,19 @@
+services:
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.55
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-filer.port=8888", "-s3.config=/etc/seaweedfs/s3.json"]
+    stop_grace_period: 30s
+    ports:
+      - "127.0.0.1:8333:8333"
+      - "127.0.0.1:8888:8888"
+    volumes:
+      - seaweedfs-data:/data
+      - type: bind
+        source: ./seaweedfs/s3.json
+        target: /etc/seaweedfs/s3.json
+        read_only: true
+        bind:
+          create_host_path: false
+
+volumes:
+  seaweedfs-data:
