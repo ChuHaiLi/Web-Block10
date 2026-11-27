@@ -1046,7 +1046,7 @@ GET /photos/:id/v/:version/download/:W x :H        (vd /photos/aB3dE5fG7hJ9/v/2/
 | Điện thoại | 1080×1920, 1080×2400, 1170×2532, 1290×2796, 1440×3200 |
 | Tablet / iPad | 1620×2160, 1668×2388, 2048×2732, 2560×1600 |
 
-- Chỉ hiện và chỉ chấp nhận kích thước có **cả rộng ≤ W và cao ≤ H** của version (W×H = `PhotoVersion.width/height`). Không bao giờ phóng to. Ví dụ ảnh 2000×1333 chỉ có 1366×768 ở nhóm Desktop, không có gì ở hai nhóm kia.
+- Chỉ hiện và chỉ chấp nhận kích thước có **cả rộng ≤ W và cao ≤ H** của version (W×H = `PhotoVersion.width/height`). Không bao giờ phóng to. Ví dụ ảnh 2000×1333 có 1366×768, 1920×1080, 1920×1200 ở nhóm Desktop, không có gì ở hai nhóm kia (vd 1080×1920 có cao 1920 > 1333).
 - Nhóm không còn kích thước nào → ẩn cả nhóm. Không còn kích thước nào ở mọi nhóm → ẩn mục "Kích thước khác", chỉ còn nút "Tải bản gốc".
 - `2560×1600` có mặt ở cả Desktop và Tablet: hai link trỏ cùng một URL, nên dùng chung một file đã lưu.
 
@@ -1112,7 +1112,7 @@ File `dl/` **không có dòng trong `PhotoVariant`**. Vì vậy:
 | Test | Kiểm tra |
 |---|---|
 | `download.original` | Khách tải được (không cần đăng nhập); `Content-Type: image/jpeg`; kích thước file đúng bằng `PhotoVersion.width/height`; không có EXIF (`sharp().metadata().exif` undefined); `Content-Disposition` có `filename` ASCII và `filename*` UTF-8 với tiêu đề tiếng Việt; PNG có alpha → tải về PNG |
-| `download.presets` | Ảnh 2000×1333 chỉ chấp nhận 1366×768; `1920x1080` với ảnh 3840×2160 → file đúng 1920×1080; kích thước lớn hơn ảnh, kích thước không có trong danh sách, `version` không phải số → 404; sau khi chỉnh sửa (crop) thì `v2` có danh sách kích thước theo kích thước mới |
+| `download.presets` | Ảnh 2000×1333 chấp nhận đúng 1366×768, 1920×1080, 1920×1200; `1920x1080` với ảnh 3840×2160 → file đúng 1920×1080; kích thước lớn hơn ảnh, kích thước không có trong danh sách, `version` không phải số → 404; sau khi chỉnh sửa (crop) thì `v2` có danh sách kích thước theo kích thước mới |
 | `download.cache` | Lần tải thứ hai không render lại (đếm số lần gọi `renderEdits`); hai request đồng thời cùng kích thước chỉ render một lần; quá 2 kích thước khác nhau cùng lúc thì tối đa 2 render chạy song song |
 | `download.lifecycle` | Ảnh bị xóa → các file `dl/` biến mất khỏi bucket và URL tải trả 404; version cũ bị dọn sau thời hạn → file `dl/` của version đó biến mất; xóa ảnh **trong lúc đang render** (chặn render bằng promise trong test) → 404 và không còn object `dl/` nào; version cũ chưa bị dọn vẫn tải được |
 | `pages` (bổ sung) | Trang chi tiết có nút "Tải bản gốc" cho cả khách; chỉ liệt kê kích thước ≤ ảnh; nhóm rỗng bị ẩn |
