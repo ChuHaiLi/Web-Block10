@@ -2,6 +2,7 @@
 
 Tài liệu thiết kế để triển khai. Yêu cầu gốc và bảng nghiệm thu: [REQUIREMENTS.md](REQUIREMENTS.md).
 Thứ tự làm: **phần cốt lõi (T0–T6) trước, bonus (T7–T9) sau.** Không bắt đầu task sau khi test của task trước chưa qua.
+**Cập nhật:** theo yêu cầu của giảng viên, ảnh chuyển sang object storage (SeaweedFS, S3 API). Xem **§15**. Mục đó thay thế các chỗ nói "local filesystem" ở §4, §7, §9.2 bước 5, §12, §13, và thêm task T12–T14.
 
 ---
 
@@ -14,13 +15,14 @@ Thứ tự làm: **phần cốt lõi (T0–T6) trước, bonus (T7–T9) sau.** 
 | Multipart | `busboy` 1.6 (dùng trực tiếp) | Không dùng multer: multer hủy cả request khi một file quá cỡ | Đề yêu cầu từ chối riêng file vượt 10 MiB nhưng vẫn lưu các file hợp lệ khác. Busboy báo `truncated` cho từng file và cho tự đếm bytes của cả request (để trả 413 khi vượt 55 MiB), xử lý ngắt kết nối và dọn file tạm theo ý mình. |
 | Ảnh | `sharp` (≥ 0.33) | Xoay theo EXIF, bỏ metadata, PNG/WebP, `limitInputPixels`, `failOn` | Một thư viện làm đủ các bước đề yêu cầu: đọc kích thước từ header trước khi giải mã, giới hạn số pixel, báo lỗi ảnh thiếu bytes, xoay pixel theo EXIF rồi bỏ toàn bộ EXIF (gồm GPS), xuất WebP. Dùng libvips nên nhanh và tốn ít RAM. |
 | DB | PostgreSQL + Prisma 5 | `prisma migrate dev` | Đã có sẵn cài đặt và kinh nghiệm từ các block trước. Transaction của PostgreSQL cùng câu `UPDATE` có điều kiện đủ để xử lý hai lần lưu chỉnh sửa đồng thời. Prisma cho schema rõ ràng và migration lặp lại được trên DB dev lẫn DB test. |
+| Object storage | SeaweedFS (S3 API) qua `@aws-sdk/client-s3`, chạy bằng Docker | Xem §15. Ảnh và PNG gốc nằm trong bucket; file tạm và hàng đợi dọn vẫn ở đĩa local | Giảng viên yêu cầu: nhiều người đăng ảnh thì phải chạy nhiều web server, mà ổ đĩa riêng của một máy thì máy khác không đọc được (slide 19). SeaweedFS là lựa chọn slide 21 đề xuất, miễn phí, chạy bằng Docker, không cần tài khoản. Code chỉ dùng S3 API nên đổi sang Cloudflare R2 chỉ cần sửa `.env`. Không chọn MinIO vì từ 10/2025 bản community không còn Docker image chính thức. |
 | Config | `dotenv` | | Tách cấu hình (DB, thư mục lưu ảnh) khỏi code và khỏi git. Dùng hai file `.env` và `.env.test` để dev và test không dùng chung DB hay thư mục ảnh. Có `.env.example` làm cấu hình mẫu để nộp. |
 | Test | `node:test` + `supertest` | DB test riêng, `UPLOAD_ROOT` tạm riêng cho mỗi lần chạy | `node:test` có sẵn trong Node, không thêm phụ thuộc. `supertest` gửi request thật vào app mà không cần mở cổng, phù hợp với yêu cầu nghiệm thu qua request thật và trạng thái lưu. |
 | Frontend | EJS + CSS + JS thuần | Form upload gửi `fetch` + `FormData`; trang edit dùng `<canvas>` | Giao diện ít màn hình nên không cần framework. `fetch` + `FormData` là đúng cách slide 8 hướng dẫn và cho hiển thị kết quả theo từng file. `<canvas>` đủ để xem trước xoay, lật, crop với cùng thứ tự như server. |
 
 ID ngẫu nhiên: `crypto.randomBytes(9).toString('base64url')` → 12 ký tự `[A-Za-z0-9_-]`. Không cần thêm thư viện.
 
-Ngoài phạm vi: đăng nhập và phân quyền (ai cũng upload/xóa/sửa được), CSRF, object storage (SeaweedFS/MinIO), CDN. README phải ghi rõ các điểm này.
+Ngoài phạm vi: đăng nhập và phân quyền (ai cũng upload/xóa/sửa được), CSRF, CDN, presigned URL. README phải ghi rõ các điểm này. (Object storage **đã nằm trong phạm vi**, xem §15.)
 
 ---
 
@@ -90,6 +92,8 @@ FAULT_INJECT=
 ---
 
 ## 4. Storage
+
+> **Đã thay đổi ở §15:** `photos/` và `originals/` nằm trong bucket S3 (SeaweedFS). Chỉ `tmp/` và `cleanup-queue/` còn ở đĩa local. Storage key giữ nguyên như bảng dưới.
 
 | Nội dung | Storage key | Công khai? |
 |---|---|---|
@@ -616,3 +620,198 @@ Mỗi task: code → test của task đó qua → chạy lại toàn bộ `npm t
 | T8 | Bonus UI: trang edit với canvas, crop kéo chuột, Lưu/Khôi phục, xử lý 409 | Thủ công: xem trước khớp với kết quả lưu trên `corners.png` và một ảnh thật |
 | T9 | Bonus: `runCleanup` bước 4 (version cũ), cập nhật README và bằng chứng | `cleanup` qua toàn bộ |
 | T10 | Rà lại theo bảng nghiệm thu trong REQUIREMENTS.md, mục 4–5 | Mọi dòng nghiệm thu có test hoặc bằng chứng tương ứng |
+| T11 | UI polish: gallery ô 4:3, thanh hành động ở trang chi tiết, header có `aria-current` | `npm test` qua; thuộc tính `<img>`, `sizes`, breakpoint không đổi |
+| T12 | Tách storage (§15.3–15.5): interface `ObjectStore` + driver `local`, kho nháp riêng, sửa mọi nơi gọi, helper test không phụ thuộc driver | Toàn bộ test qua với `STORAGE_DRIVER=local`; hành vi không đổi; `storage.contract` qua với driver `local` |
+| T13 | Driver `s3` + SeaweedFS (§15.4, 15.6–15.8): `docker-compose.yml`, cấu hình, bucket riêng cho mỗi test, test contract và test S3 ngừng hoạt động | `npm run storage:up` rồi `npm test` qua toàn bộ với `STORAGE_DRIVER=s3`; ảnh upload thấy được trong filer UI của SeaweedFS |
+| T14 | Bằng chứng và tài liệu (§15.9–15.11): `evidence:db` liệt kê object, README, `.env.example`, checklist mục 15–16, kiểm tra hai web server | Hai server cùng DB và bucket thấy ảnh của nhau; README đủ để dựng từ đầu |
+
+---
+
+## 15. Object storage (SeaweedFS)
+
+Thay đổi theo yêu cầu của giảng viên: Photo Gallery có nhiều người đăng ảnh, nên ảnh phải nằm trong **object storage dùng chung** thay vì ổ đĩa của một web server. Mục này **thay thế** những chỗ nói "local filesystem" ở §4, §7, §9.2 bước 5, §12, §13. Phần còn lại của spec giữ nguyên.
+
+### 15.1 Lý do và phạm vi
+
+- Ổ đĩa riêng gắn với một máy: chạy thêm web server B thì B không đọc được ảnh mà A đã ghi, và dung lượng bị giới hạn ở một ổ đĩa (slide 19). Bucket S3 là kho chung mà mọi web server đọc và ghi qua HTTP API.
+- **SeaweedFS** là lựa chọn slide 21 đề xuất, chạy bằng Docker, miễn phí, không cần tài khoản. Code chỉ dùng S3 API, nên đổi sang Cloudflare R2 hay dịch vụ S3 khác chỉ cần sửa `.env` (§15.11).
+- **Storage key không đổi** (`photos/<id>/v<n>/<w>.webp`, `originals/<id>.png`). DB, schema Prisma và URL `/media/<key>` giữ nguyên. Chỉ thay nơi lưu bytes.
+- Không làm: CDN, presigned URL, bucket public cho browser tải trực tiếp (§15.5 giải thích), chuyển dữ liệu cũ từ ổ đĩa sang bucket (§15.10).
+
+### 15.2 Hai loại kho
+
+| Kho | Prefix | Nơi lưu | Vì sao |
+|---|---|---|---|
+| **Object store** (dùng chung) | `photos/`, `originals/` | Bucket S3 (driver `s3`), hoặc `UPLOAD_ROOT` (driver `local`) | Ảnh đã công bố và PNG gốc phải đọc được từ mọi web server |
+| **Kho nháp** (riêng từng server) | `tmp/`, `cleanup-queue/` | Luôn là đĩa local, trong `UPLOAD_ROOT` | File tạm của một request và hàng đợi dọn của một server không cần chia sẻ. Giữ nguyên thiết kế §6.3 và §9.2 bước 1 |
+
+- Driver chọn **một lần lúc khởi động** bằng `STORAGE_DRIVER=s3|local`. Bản nộp dùng `s3`. Driver `local` chỉ để chạy nhanh khi không có Docker và để chạy test contract.
+- **Không bao giờ tự chuyển sang local khi S3 lỗi.** Làm vậy file sẽ nằm rải ở hai nơi (speaker note slide 21). S3 lỗi thì trả lỗi và dọn dẹp như mọi lỗi lưu trữ khác.
+
+### 15.3 Interface `ObjectStore` (`src/storage/objectStore.js`)
+
+```js
+put(key, body /* Buffer */, { contentType })   → Promise<void>
+getStream(key)  → Promise<{ body /* Readable */, contentLength, contentType, lastModified /* Date */ }>
+getBuffer(key)  → Promise<Buffer>
+delete(key)     → Promise<void>          // idempotent: key không tồn tại vẫn thành công
+list(prefix, { pageSize } = {})  → AsyncIterable<{ key, size, lastModified /* Date */ }>  // tự phân trang
+ensureReady()   → Promise<void>          // kiểm tra kết nối, tạo bucket nếu chưa có
+describe()      → { driver: 's3', endpoint, bucket } | { driver: 'local', root }   // không bao giờ chứa key bí mật
+```
+
+- Mọi hàm kiểm tra key bằng đúng regex hiện có (`variantKeyPattern`, `originalKeyPattern`). Key sai → lỗi `code: 'INVALID_KEY'`, không gửi request nào.
+- **Chuẩn hóa lỗi:** object không tồn tại → `code: 'NOT_FOUND'` ở cả hai driver (`NoSuchKey`/404 của S3, `ENOENT` của local). Lỗi khác giữ nguyên. Nơi gọi đổi thành `STORAGE_ERROR` như hiện nay.
+- `delete` không cho biết object có tồn tại trước đó hay không (S3 không trả thông tin này). Các bộ đếm trong output cleanup (`deletedPhotoFilesRemoved`, …) từ nay nghĩa là **số key đã xử lý**. README ghi rõ.
+- **Kho nháp** (`src/storage/scratch.js`) giữ các hàm hiện có cho `tmp/` và `cleanup-queue/`: `keyToPath`, `writeFile`, `deleteKey`, `listDir`. Hàm `keyToPath` **chỉ** nhận key `tmp/` và `cleanup-queue/`. Gọi nó với key `photos/` hay `originals/` là lỗi lập trình và phải ném lỗi.
+
+### 15.4 Driver
+
+**`local`**: lưu dưới `UPLOAD_ROOT`, giữ nguyên hành vi hiện tại (đường dẫn an toàn, xóa thư mục rỗng, thử lại `EPERM`/`EBUSY` trên Windows). `list` duyệt đệ quy thư mục, trả `lastModified` từ `mtime`. `contentType` suy ra từ đuôi file.
+
+**`s3`**: dùng `@aws-sdk/client-s3`.
+
+```js
+new S3Client({
+  endpoint: S3_ENDPOINT, region: S3_REGION, forcePathStyle: S3_FORCE_PATH_STYLE,
+  credentials: { accessKeyId: S3_ACCESS_KEY_ID, secretAccessKey: S3_SECRET_ACCESS_KEY },
+  maxAttempts: 3,
+  requestHandler: new NodeHttpHandler({ connectionTimeout: 2000, requestTimeout: 15000 })  // @smithy/node-http-handler
+})
+```
+
+| Hàm | Lệnh S3 |
+|---|---|
+| `put` | `PutObject` với `ContentType`, `ContentLength` |
+| `getStream` / `getBuffer` | `GetObject` |
+| `delete` | `DeleteObject` (S3 trả thành công cả khi key không tồn tại) |
+| `list` | `ListObjectsV2` lặp theo `ContinuationToken`, `MaxKeys = pageSize ?? 1000` |
+| `ensureReady` | `HeadBucket`; 404 → `CreateBucket`; lỗi khác → ném lỗi "Không kết nối được object storage tại `<endpoint>`" |
+
+Log lỗi S3 ghi `endpoint`, `bucket`, `key` và tên lỗi. **Không bao giờ** ghi access key hay secret.
+
+### 15.5 Thay đổi theo từng phần
+
+| Phần | Hiện tại | Sau khi đổi |
+|---|---|---|
+| `processImage` (upload) | `sharp(tmp).rotate().png().toFile(path)`; giữ chỗ bằng `fs.open(..., 'wx')` | `sharp(tmp).rotate().png().toBuffer({ resolveWithObject: true })` → `put(originalKey, png, { contentType: 'image/png' })`. Variant: `sharp(png).resize().webp().toBuffer()` → `put(..., 'image/webp')`. **Đẩy key vào `writtenKeys` trước khi `put`**, để `put` lỗi giữa chừng vẫn được dọn. Bỏ bước giữ chỗ vì ID ngẫu nhiên. |
+| `saveVersion`, `/edit/source` | `fs.readFile(originalKey)` | `getBuffer(originalKey)`. `NOT_FOUND` + ảnh không còn `PUBLISHED` → 404 như hiện nay. |
+| `/media/*` | `res.sendFile` | Giữ nguyên bước tra DB. Rồi `getStream(key)`, đặt `Content-Type: image/webp`, `Content-Length`, `Cache-Control: public, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff`, rồi `stream.pipeline(body, res)`. Client ngắt giữa chừng → hủy stream S3. `NOT_FOUND` → 404, không có header cache, ghi log cảnh báo. Lỗi S3 khác trước khi gửi header → **502**, không có header cache. |
+| `purgePhoto`, dọn version cũ | `storage.deleteKey` | `objectStore.delete`. Logic giữ `DELETING` / `purgedAt null` khi lỗi không đổi. |
+| `cleanup-queue` | Xóa key bằng `storage.deleteKey` | Chọn kho theo prefix của key: `tmp/` → kho nháp; `photos/`, `originals/` → object store |
+| `runCleanup` bước 5 (mồ côi) | Quét thư mục, dùng `mtime` | `list('photos/')`, nhóm theo `photos/<id>/v<n>/`. Xóa cả nhóm khi không có dòng `PhotoVersion` **và** mọi object trong nhóm có `lastModified` cũ hơn 1 giờ. `list('originals/')`: xóa khi không có `Photo` và cũ hơn 1 giờ. Tra DB theo lô (`findMany` theo danh sách id), không tra từng object. |
+| `parseMultipart` | File tạm trên đĩa | **Không đổi** (kho nháp) |
+
+**Vì sao ảnh vẫn đi qua web server, không cho browser tải thẳng từ bucket:** `/media` phải tra DB để trả 404 cho ảnh đã xóa, version chưa commit hoặc file mồ côi (§7), và phải đặt đúng `Cache-Control`. Bucket public hay presigned URL sẽ bỏ qua bước kiểm tra này. Cái giá là web server vẫn phải gửi bytes ảnh (speaker note slide 18). Giảm tải chỗ này là việc của CDN, nằm ngoài phạm vi.
+
+**Bộ nhớ:** PNG gốc giờ nằm trong RAM trước khi `put`. Ảnh 40 triệu pixel có thể chiếm tới khoảng 120 MB. Upload vẫn xử lý tuần tự từng file (§6.4), nên mỗi request chỉ giữ một ảnh như vậy cùng lúc.
+
+### 15.6 Cấu hình
+
+Thêm vào `.env.example` (giá trị giả, không có credential thật):
+
+```
+STORAGE_DRIVER=s3
+S3_ENDPOINT=http://localhost:8333
+S3_REGION=us-east-1
+S3_BUCKET=photo-gallery
+S3_ACCESS_KEY_ID=replace-with-local-access-key
+S3_SECRET_ACCESS_KEY=replace-with-local-secret-key
+S3_FORCE_PATH_STYLE=true
+# Khi STORAGE_DRIVER=s3, UPLOAD_ROOT chỉ chứa tmp/ và cleanup-queue/ của server này.
+UPLOAD_ROOT=../gallery-uploads
+```
+
+- `.env.test`: `S3_BUCKET=photo-gallery-test`, các giá trị khác giống `.env`.
+- `loadConfig`:
+  - `STORAGE_DRIVER` chỉ nhận `s3` hoặc `local`.
+  - Với `s3`, thiếu biến nào thì báo lỗi nêu đúng tên biến, không in giá trị.
+  - Tên bucket đúng quy tắc S3: 3–63 ký tự `[a-z0-9-]`, bắt đầu và kết thúc bằng chữ hoặc số.
+  - **Quy tắc giống `UPLOAD_ROOT` ở §3:** ở chế độ test, `S3_BUCKET` phải chứa `test` **và** khác `S3_BUCKET` của `.env`. Sai thì báo lỗi trước khi kết nối. Lý do giống hệt: cleanup ở chế độ test đối chiếu bucket với DB test, nên nếu dùng chung bucket dev nó sẽ xóa ảnh dev.
+
+### 15.7 SeaweedFS chạy local
+
+`docker-compose.yml` ở thư mục gốc dự án:
+
+```yaml
+services:
+  seaweedfs:
+    image: chrislusf/seaweedfs:<ghim một version cụ thể>
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - "8333:8333"   # S3 API
+      - "8888:8888"   # Filer UI, xem object để chụp bằng chứng
+    volumes:
+      - seaweedfs-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+volumes:
+  seaweedfs-data:
+```
+
+- `seaweedfs/s3.example.json` (commit): một identity với key giả, quyền `Read`, `Write`, `List`, `Tagging`, `Admin` (cần `Admin` để `CreateBucket`).
+- `seaweedfs/s3.json` (**thêm vào `.gitignore`**): bản sao người dùng tự tạo, key khớp `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` trong `.env` và `.env.test`.
+- Script: `npm run storage:up` = `docker compose up -d seaweedfs`; `npm run storage:down` = `docker compose stop seaweedfs`.
+- Volume `seaweedfs-data` giữ object khi restart container. Đây là phần bằng chứng restart của bucket.
+- **Người triển khai phải kiểm tra lại** cờ dòng lệnh, định dạng `s3.json` và cổng theo tài liệu SeaweedFS của đúng version đã ghim, rồi ghi version đó vào README.
+- Server lúc khởi động gọi `ensureReady()`. Không kết nối được thì **dừng hẳn** với thông báo rõ ràng ("Chạy `npm run storage:up` trước"), không chạy tiếp ở trạng thái lỗi.
+
+### 15.8 Kiểm thử
+
+- `.env.test` dùng `STORAGE_DRIVER=s3`. `prepareTest` tạo **bucket riêng cho mỗi test**: `<S3_BUCKET>-<8 ký tự hex ngẫu nhiên>`. Sau test, xóa mọi object trong bucket rồi `DeleteBucket`. Kho nháp vẫn là thư mục tạm như hiện nay. Nhờ vậy các test không dùng chung dữ liệu, và chạy lại không bị rác từ lần trước.
+- SeaweedFS chưa chạy → test đầu tiên dừng ngay với thông báo "SeaweedFS chưa chạy. Chạy: `npm run storage:up`", không để mỗi test tự chờ đến timeout.
+- Helper test không phụ thuộc driver: `listObjectKeys(prefix)`, `readObject(key)`, `objectExists(key)`. Thay toàn bộ chỗ test đang dùng `storage.keyToPath` hoặc `listDir('photos'|'originals')`. Test mock lỗi xóa (`upload.fault`, `edit.fault`, `delete`, `cleanup`) mock `objectStore.delete` thay cho `storage.deleteKey`.
+- Test mới:
+
+| Test | Kiểm tra |
+|---|---|
+| `storage.contract` | Chạy **cùng một bộ** cho cả `local` và `s3`: `put` rồi `getBuffer` ra đúng bytes; `getStream` trả `contentLength`, `lastModified`; key không tồn tại → `NOT_FOUND`; `delete` hai lần không lỗi; `list` với `pageSize: 2` trên 5 object vẫn trả đủ 5 (kiểm tra phân trang); key sai định dạng → `INVALID_KEY` và không gửi request |
+| `storage.s3-down` | Object store trỏ tới cổng không có ai nghe, timeout ngắn: upload 1 file → kết quả file `STORAGE_ERROR`, 0 Photo, `tmp/` rỗng, **không có file nào trong `UPLOAD_ROOT/photos` hay `originals`** (chứng minh không tự chuyển sang local). GET media khi S3 ngừng → 502, không có `Cache-Control`. |
+| `media` (bổ sung) | Có dòng DB nhưng object đã bị xóa khỏi bucket → 404. Response stream đúng bytes và đúng `Content-Length`. |
+| `restart` (bổ sung) | App mới cùng DB và **cùng bucket**, kho nháp mới → gallery và media vẫn 200 |
+| `cleanup` (bổ sung) | Object mồ côi trong bucket: không có `PhotoVersion` và cũ hơn 1 giờ thì bị xóa, mới hơn thì giữ. Test giả lập "cũ" bằng cách truyền `now` vào `runCleanup` (thêm tham số `now = Date.now()`), không chờ thật. |
+
+- `npm test` vẫn chạy tuần tự (`--test-concurrency=1`).
+
+### 15.9 Kiểm tra nhiều web server
+
+Đây là lý do chính của thay đổi, nên phải có bằng chứng:
+
+1. Chạy hai server cùng DB và cùng bucket, mỗi server có kho nháp riêng:
+
+```powershell
+$env:PORT=3000; $env:UPLOAD_ROOT='../gallery-uploads-a'; npm start
+```
+
+```powershell
+$env:PORT=3001; $env:UPLOAD_ROOT='../gallery-uploads-b'; npm start
+```
+
+2. Upload ảnh qua `http://localhost:3000/upload`.
+3. Mở `http://localhost:3001/` và trang chi tiết của ảnh đó: ảnh hiện, GET media trả 200.
+4. Xóa ảnh trên server 3001 → request mới tới `localhost:3000/media/...` trả 404.
+
+Hai server cùng chạy cleanup định kỳ là an toàn: hàng đợi của mỗi server nằm riêng, các bước dọn trong DB và bucket đều idempotent (§9.2).
+
+### 15.10 Dữ liệu cũ
+
+Không viết script chuyển ảnh từ `../gallery-uploads` sang bucket. Dữ liệu dev hiện có chỉ là ảnh thử. Sau T13, làm sạch DB dev (`npx prisma migrate reset`, lệnh này **xóa toàn bộ dữ liệu dev**) và bắt đầu lại với bucket rỗng. Toàn bộ bằng chứng chụp lại sau T14, để mọi mục cùng một lần chạy.
+
+### 15.11 Bằng chứng và tài liệu
+
+Thay đổi trong checklist §13:
+
+| # | Thay đổi |
+|---|---|
+| 03 | `evidence:db` liệt kê **object trong bucket** (key, size, lastModified) thay cho file trên đĩa, kèm dòng `describe()` (driver, endpoint, bucket) |
+| 10 | Sau khi gây lỗi DB, liệt kê object trong bucket test, không liệt kê thư mục |
+| 11 | Restart web server; thêm `docker compose restart seaweedfs` rồi GET lại cùng URL media → 200 (volume giữ dữ liệu) |
+| 12 | Sau khi xóa, `evidence:db -- --photo <id>` không còn object nào dưới `photos/<id>/` và không còn `originals/<id>.png` |
+| 13 | Thêm `seaweedfs/s3.example.json` (key giả) |
+| **15 (mới)** | `15-bucket-objects.txt`: output liệt kê object của bucket dev. `15-seaweedfs-filer.png`: ảnh chụp filer UI `http://localhost:8888/buckets/photo-gallery/photos/<id>/v1/` (speaker note slide 37: nhóm dùng SeaweedFS nộp thêm ảnh hoặc log liệt kê object) |
+| **16 (mới)** | `16-two-servers.png` + `.txt`: các bước §15.9, upload ở 3000, GET cùng URL media ở 3001 → 200 |
+
+README:
+- Mục cài đặt: `npm run storage:up`, tạo `seaweedfs/s3.json` từ bản mẫu, điền các biến `S3_*` vào `.env` và `.env.test`, version SeaweedFS đã ghim.
+- Mục "Kho ảnh": hai loại kho, driver, lý do phục vụ ảnh qua web server, ý nghĩa mới của các bộ đếm cleanup.
+- Bỏ "object storage" khỏi mục "Ngoài phạm vi".
+- **Dùng Cloudflare R2 thay SeaweedFS** (tùy chọn, không cần sửa code): tạo bucket và API token trong dashboard, đặt `S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com`, `S3_REGION=auto`, cùng key của token. Ghi rõ: không commit key thật, và R2 có hạn mức miễn phí (10 GB/tháng) nên không chạy bộ test trên R2.
