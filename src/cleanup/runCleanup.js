@@ -132,7 +132,20 @@ async function cleanSupersededVersions(prisma, objectStore, cutoff)
         if (version === photo.currentVersion) continue;
 
         let failed = false;
-        for (const { storageKey } of variants)
+        const prefix = 'photos/' + photoId + '/v' + version + '/';
+        const listedKeys = [];
+        try
+        {
+            for await (const { key } of objectStore.list(prefix)) listedKeys.push(key);
+        }
+        catch (error)
+        {
+            failed = true;
+            console.error('Không liệt kê được object của version ' + prefix, error);
+        }
+
+        const keys = new Set([...variants.map(variant => variant.storageKey), ...listedKeys]);
+        for (const storageKey of keys)
         {
             try
             {
@@ -185,29 +198,46 @@ async function cleanOrphanVersions(prisma, objectStore, cutoff)
         const prefix = photoId + '/' + versionDir;
         if (!groups.has(prefix))
         {
-            groups.set(prefix, { photoId, version: Number(versionDir.slice(1)), keys: [], old: true });
+            groups.set(prefix, { photoId, version: Number(versionDir.slice(1)), items: [], hasOld: false, allOld: true });
         }
         const group = groups.get(prefix);
-        group.keys.push(key);
-        group.old &&= lastModified.getTime() < cutoff;
+        const isOld = lastModified.getTime() < cutoff;
+        group.items.push({ key, isOld });
+        group.hasOld ||= isOld;
+        group.allOld &&= isOld;
     }
 
-    const candidates = [...groups.values()].filter(group => group.old);
-    const registered = new Set();
+    const candidates = [...groups.values()].filter(group => group.hasOld);
+    const versionStates = new Map();
     for (const ids of idBatches(candidates.map(group => group.photoId)))
     {
         const versions = await prisma.photoVersion.findMany({
             where: { photoId: { in: ids } },
-            select: { photoId: true, version: true }
+            select: { photoId: true, version: true, purgedAt: true, photo: { select: { status: true } } }
         });
-        for (const { photoId, version } of versions) registered.add(photoId + '/' + version);
+        for (const { photoId, version, purgedAt, photo } of versions)
+        {
+            versionStates.set(photoId + '/' + version, { purged: purgedAt !== null || photo.status === 'PURGED' });
+        }
     }
 
     let removed = 0;
-    for (const { photoId, version, keys } of candidates)
+    for (const { photoId, version, items, allOld } of candidates)
     {
-        if (registered.has(photoId + '/' + version)) continue;
-        for (const key of keys) removed += await deleteOrphan(objectStore, key);
+        const state = versionStates.get(photoId + '/' + version);
+        if (!state)
+        {
+            if (!allOld) continue;
+            for (const { key } of items) removed += await deleteOrphan(objectStore, key);
+            continue;
+        }
+        if (state.purged)
+        {
+            for (const { key, isOld } of items)
+            {
+                if (isOld) removed += await deleteOrphan(objectStore, key);
+            }
+        }
     }
     return removed;
 }

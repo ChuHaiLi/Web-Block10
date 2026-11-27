@@ -1,10 +1,11 @@
 const variantKeyPattern = /^photos\/[A-Za-z0-9_-]{12}\/v\d+\/\d+\.webp$/;
 const originalKeyPattern = /^originals\/[A-Za-z0-9_-]{12}\.png$/;
+const downloadKeyPattern = /^photos\/[A-Za-z0-9_-]{12}\/v\d+\/dl\/(original|\d+x\d+)\.(jpg|png)$/;
 
 function isObjectKey(key)
 {
     return typeof key === 'string' && key === key.trim() &&
-        (variantKeyPattern.test(key) || originalKeyPattern.test(key));
+        (variantKeyPattern.test(key) || originalKeyPattern.test(key) || downloadKeyPattern.test(key));
 }
 
 function validateObjectKey(key)
@@ -31,4 +32,6 @@ function createObjectStore({ storageDriver, uploadRoot, s3 })
     throw new Error('STORAGE_DRIVER phải là local hoặc s3');
 }
 
-module.exports = { createObjectStore, isObjectKey, validateObjectKey, variantKeyPattern, originalKeyPattern };
+module.exports = {
+    createObjectStore, isObjectKey, validateObjectKey, variantKeyPattern, originalKeyPattern, downloadKeyPattern
+};

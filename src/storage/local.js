@@ -5,6 +5,13 @@ const { keyPath, unlinkIfPresent, removeEmptyDirectory } = require('./filesystem
 
 const directories = ['photos', 'originals'];
 
+function contentTypeForKey(key)
+{
+    if (key.endsWith('.png')) return 'image/png';
+    if (key.endsWith('.jpg')) return 'image/jpeg';
+    return 'image/webp';
+}
+
 function notFound(key, cause)
 {
     return Object.assign(new Error('Object not found: ' + key, { cause }), { code: 'NOT_FOUND' });
@@ -39,7 +46,7 @@ function createLocalObjectStore(uploadRoot)
             return {
                 body: handle.createReadStream(),
                 contentLength: stat.size,
-                contentType: key.endsWith('.png') ? 'image/png' : 'image/webp',
+                contentType: contentTypeForKey(key),
                 lastModified: stat.mtime
             };
         }
@@ -71,9 +78,13 @@ function createLocalObjectStore(uploadRoot)
         await unlinkIfPresent(filePath);
         if (key.startsWith('photos/'))
         {
-            const versionDir = path.dirname(filePath);
-            await removeEmptyDirectory(versionDir);
-            await removeEmptyDirectory(path.dirname(versionDir));
+            const photosRoot = path.join(root, 'photos');
+            let dir = path.dirname(filePath);
+            while (dir !== photosRoot && dir.startsWith(photosRoot + path.sep))
+            {
+                await removeEmptyDirectory(dir);
+                dir = path.dirname(dir);
+            }
         }
     }
 

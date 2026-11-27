@@ -1,6 +1,7 @@
 const path = require('node:path');
 const express = require('express');
 const { createApiRouter } = require('./routes/api');
+const { createDownloadRouter } = require('./routes/download');
 const { createMediaRouter } = require('./routes/media');
 const { createPagesRouter } = require('./routes/pages');
 const { createAuthRouter } = require('./routes/auth');
@@ -19,6 +20,7 @@ function createApp({ prisma, objectStore, scratch, sessionSecret, cookieSecure =
     {
         res.status(404).type('text').send('Không tìm thấy ảnh');
     });
+    app.use(createDownloadRouter(prisma, objectStore, scratch));
 
     app.use(sessionMiddleware(prisma, sessionSecret, cookieSecure));
     app.use(loadUser(prisma, cookieSecure));

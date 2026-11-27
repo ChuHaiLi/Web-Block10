@@ -6,9 +6,20 @@ async function purgePhoto({ prisma, objectStore, id })
     });
     if (!photo) return 0;
 
-    const keys = [...photo.variants.map(variant => variant.storageKey), photo.originalKey];
     let filesRemoved = 0;
     let failed = false;
+    const listedKeys = [];
+    try
+    {
+        for await (const { key } of objectStore.list('photos/' + id + '/')) listedKeys.push(key);
+    }
+    catch (error)
+    {
+        failed = true;
+        console.error('Không liệt kê được object của ảnh ' + id, error);
+    }
+
+    const keys = [...new Set([...photo.variants.map(variant => variant.storageKey), ...listedKeys]), photo.originalKey];
     for (const key of keys)
     {
         try
