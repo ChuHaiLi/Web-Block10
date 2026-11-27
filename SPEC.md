@@ -5,6 +5,7 @@ Thứ tự làm: **phần cốt lõi (T0–T6) trước, bonus (T7–T9) sau.** 
 **Cập nhật:** theo yêu cầu của giảng viên, ảnh chuyển sang object storage (SeaweedFS, S3 API). Xem **§15**. Mục đó thay thế các chỗ nói "local filesystem" ở §4, §7, §9.2 bước 5, §12, §13, và thêm task T12–T14.
 **Cập nhật:** nhóm thêm đăng nhập, chỉ người đăng nhập mới được upload, chỉ chủ ảnh được sửa/xóa. Xem **§16**, task T15–T17. **Thứ tự làm: T13 → T15 → T16 → T17 → T14.** Chụp toàn bộ bằng chứng một lượt sau T14.
 **Cập nhật:** nhóm thêm tính năng tải ảnh kiểu 4K Wallpapers (bản gốc + kích thước theo thiết bị). Xem **§17**, task T18–T19. **Thứ tự làm mới: T16 → T17 → T18 → T19 → T14.**
+**Cập nhật:** nhóm làm lại giao diện theo phong cách 4kwallpapers.com. Xem **§18**, task T20. **Thứ tự làm mới: T16 → T17 → T18 → T19 → T20 → T14.** T20 làm sau T19 để giao diện mới bao gồm luôn khối tải xuống; T14 (bằng chứng) vẫn cuối cùng.
 
 ---
 
@@ -569,7 +570,8 @@ Kiểm tra thủ công bằng browser (ghi lại để làm bằng chứng):
 |---|---|---|
 | Gallery, viewport 300 px, DPR 1 | ≈ 300 | `320.webp` |
 | Gallery, viewport 1400 px, DPR 1 | ≈ 462 | `960.webp` |
-| Trang chi tiết, viewport 1400 px, DPR 1 | ≈ 1400 | `1600.webp` |
+| Trang chi tiết, viewport 1400 px, DPR 1 | ≈ 1400 | `1600.webp` (trước giao diện mới §18) |
+| Trang chi tiết, viewport 1400 px, **DPR 2** (sau §18) | ≈ 916 (cần ≈ 1832 điểm ảnh) | `1600.webp` |
 
   Không yêu cầu mọi độ rộng viewport đều cho URL khác nhau. Ví dụ ở DPR 1, ô rộng 375, 400 và 462 px đều chọn `960w`, và điều đó đúng. Mục tiêu nghiệm thu là gallery **không mặc định tải file lớn nhất**. Browser có thể chọn variant lớn hơn nếu bản đó đã có trong cache, vì vậy phải tắt cache khi kiểm tra.
 
@@ -632,6 +634,7 @@ Mỗi task: code → test của task đó qua → chạy lại toàn bộ `npm t
 | T17 | Phần thêm (§16.7–16.9): tên người đăng, trang "Ảnh của tôi", khóa tạm khi đoán mật khẩu, đổi mật khẩu; `evidence:requests` tự đăng ký tài khoản; README, checklist mục 17–18 | Test `auth.lockout`, `auth.password`, `pages` (bổ sung) qua; (chưa chụp bằng chứng, chuyển sang T14) |
 | T18 | Tải ảnh, backend (§17.2–17.6): `presets.js`, `downloadKeyPattern`, route tải, tạo file khi tải lần đầu (semaphore, gộp request trùng, kiểm tra lại sau `put`), sửa `purgePhoto` / dọn version cũ / dọn mồ côi sang xóa theo prefix | Test `download.original`, `download.presets`, `download.cache`, `download.lifecycle` qua; toàn bộ test cũ qua |
 | T19 | Tải ảnh, giao diện (§17.7): nút "Tải bản gốc (W×H)", mục "Kích thước khác" có tab, bằng chứng mục 19 trong checklist | Test `pages` (bổ sung) qua; kiểm tra tay: khách tải được bản gốc và 1920×1080 của một ảnh 4K |
+| T20 | Giao diện mới tham khảo 4kwallpapers.com (§18): bảng màu tối, font tự host, header, gallery 16:10, trang chi tiết hai cột có sidebar tải xuống, upload kéo thả, form đăng nhập; đổi `sizes` theo §18.4–18.5 | `npm test` qua (test `pages` cập nhật); script tương phản đạt AA; ảnh chụp trước/sau ở 375 và 1280 px |
 
 ---
 
@@ -1119,3 +1122,100 @@ File `dl/` **không có dòng trong `PhotoVariant`**. Vì vậy:
 | # | Nội dung |
 |---|---|
 | **19 (mới)** | `19-download.png`: trang chi tiết có nút tải bản gốc và mục kích thước khác (khi chưa đăng nhập). `19-download.txt`: header của `GET …/download/original` và `GET …/download/1920x1080` (`curl.exe -s -D - -o <file>`), kèm output `npm run evidence:exif` trên hai file tải về (đúng kích thước, không có EXIF/GPS), và danh sách object `dl/` trong bucket |
+
+---
+
+## 18. Giao diện mới (tham khảo 4kwallpapers.com)
+
+Nhóm muốn làm lại giao diện theo phong cách của [4kwallpapers.com](https://4kwallpapers.com/): nền tối, ảnh là trung tâm, thẻ ảnh bo góc, nút tải xuống nổi bật màu xanh chanh.
+
+### 18.1 Nguyên tắc
+
+- **Tham khảo phong cách, không sao chép.** Học bố cục, bảng màu tối, kiểu thẻ ảnh, cách đặt khối tải xuống. **Không** dùng logo, tên "4K Wallpapers", hình ảnh, icon hay mã CSS/JS của trang đó. Tên và wordmark của app vẫn là "Photo Gallery".
+- Không thêm framework CSS, không thêm bước build. Chỉ sửa `styles.css`, các file EJS và một ít JS thuần.
+- Font tự host bằng gói npm `@fontsource/outfit` (tiêu đề) và `@fontsource/open-sans` (nội dung), phục vụ qua một route static `/fonts`. Không tải font từ Google Fonts, để trang không gửi request ra bên thứ ba.
+- **Dark theme là mặc định duy nhất**. Đặt `color-scheme: dark` để thanh cuộn và ô nhập cũng tối. Không làm nút chuyển sáng/tối (ngoài phạm vi).
+
+### 18.2 Bảng màu và thông số chung (CSS custom properties trong `:root`)
+
+| Biến | Giá trị | Dùng cho |
+|---|---|---|
+| `--bg` | `#2b2f35` | Nền trang |
+| `--surface` | `#353a41` | Thẻ, panel, header |
+| `--surface-2` | `#40464e` | Nút phụ, ô nhập, hover |
+| `--border` | `#4a515a` | Viền mảnh |
+| `--text` | `#eef1f6` | Chữ chính |
+| `--muted` | `#a9b1bc` | Chữ phụ (ngày, "Đăng bởi") |
+| `--accent` | `#9be22d` | Nút chính, vạch tiêu đề, tab đang chọn, viền focus |
+| `--accent-ink` | `#121608` | Chữ trên nền `--accent` |
+| `--danger` | `#ff6b6b` | Nút Xóa, thông báo lỗi |
+| `--radius` | `12px` | Bo góc thẻ và ảnh |
+| `--radius-sm` | `8px` | Bo góc nút, ô nhập |
+| `--font-heading` | `'Outfit', system-ui, sans-serif` | Tiêu đề, wordmark, nút |
+| `--font-body` | `'Open Sans', system-ui, sans-serif` | Nội dung |
+
+- Mọi cặp chữ/nền phải đạt **tương phản WCAG AA** (≥ 4,5:1 cho chữ thường). Kiểm tra cụ thể: `--text` trên `--bg`, `--muted` trên `--surface`, `--accent-ink` trên `--accent`, `--danger` trên `--surface`. Không đạt thì chỉnh giá trị, ghi giá trị cuối vào README.
+- Viền focus: `outline: 3px solid var(--accent); outline-offset: 2px` cho mọi phần tử bấm được.
+- `@media (prefers-reduced-motion: reduce)`: tắt mọi hiệu ứng chuyển động (phóng ảnh khi hover, chuyển tab).
+
+### 18.3 Header và khung trang
+
+- Header dính trên cùng (`position: sticky`), nền `--surface`, cao khoảng 64 px.
+- Trái: wordmark "**Photo** Gallery", chữ "Photo" màu `--accent`, font Outfit đậm. Bấm vào về `/`.
+- Giữa (từ 1000 px trở lên): nhóm link dạng "viên thuốc" (pill): Gallery · Upload · Ảnh của tôi. Link hiện tại có nền `--surface-2` và một vạch `--accent` bên trái, kèm `aria-current="page"`.
+- Phải: khi chưa đăng nhập là nút "Đăng nhập" (viền) và "Đăng ký" (nền `--accent`). Khi đã đăng nhập là tên người dùng, bấm vào mở menu (`<details>`) gồm Ảnh của tôi, Đổi mật khẩu, nút Đăng xuất.
+- Dưới 1000 px: các link giữa thu vào menu `<details>` "☰".
+- Nội dung trang rộng tối đa **1280 px, không tính lề**, căn giữa. Lề ngang mỗi bên 16 px (dưới 600 px) hoặc 24 px. Các phép tính `sizes` ở §18.4 và §18.5 dựa trên đúng con số này: đổi bố cục thì phải tính lại `sizes`.
+- Không làm ô tìm kiếm (ngoài phạm vi).
+
+### 18.4 Gallery và "Ảnh của tôi"
+
+- Tiêu đề mục ("Ảnh mới nhất", "Ảnh của tôi") font Outfit 24 px, có vạch `--accent` 4 px bên trái.
+- Lưới giữ nguyên **1 / 2 / 3 cột** với breakpoint **600 / 1000 px**, khoảng cách 20 px.
+- Thẻ ảnh: ảnh bo `--radius`, tỉ lệ **16:10**, `object-fit: cover`. Bên dưới là tiêu đề (1 dòng, cắt bằng `…`) và dòng phụ "bởi `<tên>` · `<ngày>`" màu `--muted`.
+- Hover/focus: thẻ nhích lên 2 px, ảnh phóng nhẹ `scale(1.03)` bên trong khung (khung có `overflow: hidden`). Tắt khi `prefers-reduced-motion`.
+- **Khung tối đa 1280 px nên ô ảnh ở màn hình rộng không còn bằng 33vw.** Đổi `sizes` của gallery thành:
+  ```
+  (max-width: 599px) 100vw, (max-width: 999px) 50vw, (max-width: 1279px) 33vw, 410px
+  ```
+  Ở 1400 px với DPR 1, ô ảnh khoảng 410 px, nên browser vẫn chọn `960w`. Kỳ vọng ở bảng §12 không đổi.
+- Trạng thái rỗng: thẻ lớn ở giữa, biểu tượng ảnh, câu "Chưa có ảnh nào" kèm nút `--accent` "Tải ảnh lên" (hoặc "Đăng nhập để tải ảnh" nếu là khách).
+
+### 18.5 Trang chi tiết
+
+Bố cục hai cột từ **1000 px** trở lên, xếp chồng một cột khi hẹp hơn:
+
+| Cột trái (chính, co giãn) | Cột phải (sidebar, rộng 340 px) |
+|---|---|
+| Ảnh trong khung bo `--radius`, nền `--surface`, cao tối đa `75vh`, `object-fit: contain` | Nút lớn toàn chiều ngang nền `--accent`: "⬇ Tải bản gốc (W×H)" (§17.7) |
+| Ngay dưới ảnh: panel "Kích thước khác" với các tab Desktop / Điện thoại / Tablet. Tab đang chọn có nền `--accent` mờ và viền `--accent`. Mỗi kích thước là một ô: dòng đậm `1920×1080`, dòng phụ nhãn ("Full HD") | Thẻ "Thông tin": tiêu đề, mô tả (alt), "Đăng bởi `<tên>`", ngày tạo, phiên bản |
+| | Nếu là chủ ảnh: nút "Chỉnh sửa" (nền `--surface-2`) và "Xóa" (viền và chữ `--danger`) |
+| | `<details>` "Thông tin kỹ thuật": bảng các variant WebP (đang có ở trang chi tiết hiện tại) |
+
+- **Cột ảnh hẹp hơn nên `sizes` của trang chi tiết phải đổi.** Từ 1000 px trở lên, cột ảnh rộng bằng khung (tối đa 1280 px) trừ sidebar 340 px và khoảng cách 24 px, tức tối đa khoảng 916 px:
+  ```
+  (max-width: 999px) 100vw, (max-width: 1279px) calc(100vw - 412px), 916px
+  ```
+  (412 px = sidebar 340 + khoảng cách 24 + lề hai bên 48.)
+- **Hệ quả cho bằng chứng §12:** ở 1400 px với DPR 1, ô ảnh khoảng 916 px nên browser chọn **`960w`**, không còn là `1600w`. Cập nhật bảng §12: dòng "Trang chi tiết" đổi thành **viewport 1400 px với DPR 2** (khoảng 1832 điểm ảnh) → kỳ vọng `1600.webp`. Bảng vẫn chứng minh được cả ba variant đều được chọn đúng lúc.
+
+### 18.6 Upload, chỉnh sửa, đăng nhập
+
+- **Upload**: khối thả file lớn, viền nét đứt `--border`, đổi sang `--accent` khi kéo file vào. Hỗ trợ kéo thả (`dragover`/`drop`) lẫn bấm để chọn. Mỗi file là một thẻ ngang: thumbnail trái, ô tiêu đề và mô tả phải, lỗi của file hiện ngay trong thẻ màu `--danger`. Nút "Tải lên" nền `--accent`. Giữ nguyên logic của `upload.js` (index, bỏ file đã lưu khi thành công một phần).
+- **Chỉnh sửa**: canvas trong panel tối, thanh công cụ dạng nút icon kèm chữ (Xoay trái, Xoay phải, Lật ngang, Bỏ crop). Vùng crop viền `--accent`. Nút "Lưu" nền `--accent`, "Khôi phục" nền `--surface-2`.
+- **Đăng nhập, đăng ký, đổi mật khẩu**: một thẻ ở giữa trang, rộng tối đa 420 px, ô nhập nền `--surface-2`, thông báo lỗi `--danger` ngay dưới ô liên quan (`aria-describedby`), nút chính toàn chiều ngang nền `--accent`.
+- Trang 403/404: thẻ ở giữa, câu thông báo, nút về Gallery.
+
+### 18.7 Ràng buộc
+
+- **Giữ nguyên** thuộc tính `srcset`, `width`, `height`, `loading`, `alt` của `<img>`, breakpoint 600/1000 px và số cột 1/2/3. Chỉ đổi `sizes` đúng như §18.4 và §18.5, kèm cập nhật test `pages` và bảng §12.
+- Không đổi route, API, logic phân quyền hay hành vi của JS hiện có. Chỉ đổi markup và CSS. Mọi test không liên quan tới giao diện phải qua mà không cần sửa.
+- Mọi chữ hiển thị vẫn bằng tiếng Việt.
+
+### 18.8 Kiểm tra
+
+- `npm test` qua toàn bộ (test `pages` cập nhật theo `sizes` mới và các lớp/markup mới).
+- Kiểm tra tương phản bằng một script nhỏ tính tỉ lệ tương phản cho các cặp màu ở §18.2, ghi kết quả vào báo cáo.
+- Ảnh chụp trước/sau (lưu **ngoài** thư mục `evidence/`) ở 375 px và 1280 px cho: gallery khi chưa đăng nhập, trang chi tiết khi là chủ ảnh, upload, đăng nhập.
+- Kiểm tra bàn phím: Tab đi qua header, thẻ ảnh, nút tải, các tab kích thước, đều thấy viền focus `--accent`.
+- Bằng chứng mục 06–07 chụp lại theo `sizes` mới (nằm trong lượt chụp chung ở T14).
